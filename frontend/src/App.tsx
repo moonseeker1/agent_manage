@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import { MainLayout } from '@/components/Layout';
 import Dashboard from '@/pages/Dashboard';
@@ -7,6 +7,19 @@ import { AgentsList } from '@/pages/Agents';
 import { GroupsList } from '@/pages/Groups';
 import { ExecutionsList } from '@/pages/Executions';
 import Monitor from '@/pages/Monitor';
+import { Login } from '@/pages/Login';
+import { useAuthStore } from '@/stores/authStore';
+
+// Protected Route component
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuthStore();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 const App: React.FC = () => {
   return (
@@ -18,15 +31,25 @@ const App: React.FC = () => {
       }}
     >
       <BrowserRouter>
-        <MainLayout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/agents" element={<AgentsList />} />
-            <Route path="/groups" element={<GroupsList />} />
-            <Route path="/executions" element={<ExecutionsList />} />
-            <Route path="/monitor" element={<Monitor />} />
-          </Routes>
-        </MainLayout>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/agents" element={<AgentsList />} />
+                    <Route path="/groups" element={<GroupsList />} />
+                    <Route path="/executions" element={<ExecutionsList />} />
+                    <Route path="/monitor" element={<Monitor />} />
+                  </Routes>
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
       </BrowserRouter>
     </ConfigProvider>
   );

@@ -8,6 +8,9 @@ from app.schemas.execution import (
     ExecutionLogResponse, ExecutionLogListResponse, MetricResponse,
     AgentMetricsSummary, ExecutionMetricsSummary
 )
+from app.schemas.user import (
+    UserBase, UserCreate, UserLogin, UserUpdate, UserResponse, Token, TokenPayload
+)
 
 __all__ = [
     # Agent schemas

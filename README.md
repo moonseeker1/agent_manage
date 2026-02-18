@@ -9,6 +9,10 @@ A comprehensive system for managing and monitoring AI agents, supporting MCP Ser
 - **Execution Monitoring**: Real-time monitoring of agent executions
 - **Metrics & Analytics**: Track performance metrics and execution history
 - **WebSocket Support**: Real-time updates for execution status and logs
+- **User Authentication**: JWT-based authentication with user management
+- **Agent Templates**: Pre-defined templates for quick agent creation
+- **Config Import/Export**: Export and import agent configurations
+- **Batch Operations**: Enable/disable/delete multiple agents at once
 
 ## Tech Stack
 
@@ -25,6 +29,7 @@ A comprehensive system for managing and monitoring AI agents, supporting MCP Ser
 - SQLAlchemy (async)
 - PostgreSQL
 - Redis
+- JWT Authentication
 
 ## Quick Start
 
@@ -103,12 +108,21 @@ npm run dev
 │   │   ├── services/       # Business logic
 │   │   ├── schemas/        # Pydantic schemas
 │   │   └── core/           # Configuration
+│   ├── tests/              # Unit tests
 │   └── requirements.txt
 ├── docker-compose.yml
 └── README.md
 ```
 
 ## API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login and get token
+- `GET /api/auth/me` - Get current user info
+- `PUT /api/auth/me` - Update current user info
+- `GET /api/auth/users` - List users (admin only)
+- `DELETE /api/auth/users/{id}` - Delete user (admin only)
 
 ### Agents
 - `GET /api/agents` - List agents
@@ -125,6 +139,8 @@ npm run dev
 - `GET /api/groups/{id}` - Get group details
 - `PUT /api/groups/{id}` - Update group
 - `DELETE /api/groups/{id}` - Delete group
+- `POST /api/groups/{id}/members` - Add member
+- `DELETE /api/groups/{id}/members/{agent_id}` - Remove member
 
 ### Executions
 - `GET /api/executions` - List executions
@@ -138,6 +154,16 @@ npm run dev
 - `GET /api/metrics/executions` - Get execution metrics
 - `GET /api/metrics/agents` - Get all agent metrics
 - `GET /api/metrics/agents/{id}` - Get agent metrics
+
+### Templates
+- `GET /api/templates` - List available templates
+- `GET /api/templates/{id}` - Get template details
+
+### Configuration
+- `GET /api/config/export` - Export all configurations
+- `POST /api/config/import` - Import configurations
+- `POST /api/config/agents/batch-delete` - Batch delete agents
+- `POST /api/config/agents/batch-toggle` - Batch toggle agents
 
 ### WebSocket
 - `WS /ws` - Global updates
@@ -172,6 +198,24 @@ npm run dev
   "custom_code": "// JavaScript code to execute"
 }
 ```
+
+## Testing
+
+### Backend Tests
+```bash
+cd backend
+pytest
+```
+
+### Frontend Lint
+```bash
+cd frontend
+npm run lint
+```
+
+## Default Login
+
+After starting the application, you can register a new account through the UI.
 
 ## License
 

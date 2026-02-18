@@ -20,6 +20,38 @@ const api = axios.create({
   },
 });
 
+// Request interceptor to add auth token
+api.interceptors.request.use(
+  (config) => {
+    const authStorage = localStorage.getItem('auth-storage');
+    if (authStorage) {
+      try {
+        const { state } = JSON.parse(authStorage);
+        if (state?.token) {
+          config.headers.Authorization = `Bearer ${state.token}`;
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Clear auth and redirect to login
+      localStorage.removeItem('auth-storage');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Agents API
 export const agentsApi = {
   list: async (params?: {
@@ -66,6 +98,23 @@ export const agentsApi = {
     const response = await api.post<Execution>(`/executions/agents/${id}/execute`, {
       input_data: inputData,
     });
+    return response.data;
+  },
+
+  batchDelete: async (ids: string[]) => {
+    const response = await api.post<{ deleted: number; failed: number }>(
+      '/config/agents/batch-delete',
+      ids
+    );
+    return response.data;
+  },
+
+  batchToggle: async (ids: string[], enabled: boolean) => {
+    const response = await api.post<{ updated: number; failed: number }>(
+      '/config/agents/batch-toggle',
+      ids,
+      { params: { enabled } }
+    );
     return response.data;
   },
 };
@@ -164,6 +213,38 @@ export const metricsApi = {
   getAllAgentMetrics: async () => {
     const response = await api.get<{ agents: AgentMetricsSummary[] }>('/metrics/agents');
     return response.data.agents;
+  },
+};
+
+// Templates API
+export const templatesApi = {
+  list: async () => {
+    const response = await api.get<{ templates: any[] }>('/templates');
+    return response.data.templates;
+  },
+
+  get: async (id: string) => {
+    const response = await api.get(`/templates/${id}`);
+    return response.data;
+  },
+};
+
+// Config API
+export const configApi = {
+  export: async () => {
+    const response = await api.get('/config/export');
+    return response.data;
+  },
+
+  import: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await api.post('/config/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
   },
 };
 

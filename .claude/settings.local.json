@@ -3,7 +3,14 @@
     "allow": [
       "WebSearch",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(curl -v --connect-timeout 10 https://github.com)",
+      "Bash(GIT_CURL_VERBOSE=1 GIT_TRACE=1 git push -u origin main)"
     ]
   }
 }
