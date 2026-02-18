@@ -1,3 +1,4 @@
+from __future__ import annotations
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Integer, Float
@@ -51,7 +52,7 @@ class ExecutionLog(Base):
     execution_id = Column(UUID(as_uuid=True), ForeignKey("executions.id", ondelete="CASCADE"), nullable=False)
     level = Column(String(20), nullable=False)  # info, warning, error, debug
     message = Column(Text, nullable=False)
-    metadata = Column(JSONB, nullable=True)
+    log_metadata = Column(JSONB, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

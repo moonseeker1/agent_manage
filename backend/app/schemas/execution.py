@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
 from typing import Optional, Any
 from datetime import datetime
 from uuid import UUID
@@ -40,13 +40,13 @@ class ExecutionListResponse(BaseModel):
 
 # Execution Log Schemas
 class ExecutionLogResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: UUID
     execution_id: UUID
     level: str
     message: str
-    metadata: Optional[dict[str, Any]] = None
+    metadata: Optional[dict[str, Any]] = Field(default=None, alias="log_metadata")
     created_at: datetime
 
 
