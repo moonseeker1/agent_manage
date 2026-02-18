@@ -21,7 +21,9 @@
       "Bash(npm:*)",
       "Bash(curl:*)",
       "Bash(awk '{print \"\"\"\"PostgreSQL: Running on port 5432\"\"\"\"}' echo \"\" echo \"Redis连接:\" docker ps)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(pkill:*)",
+      "Bash(nginx:*)"
     ]
   }
 }
