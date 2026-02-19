@@ -6,111 +6,81 @@
 
 Claude Code 支持 Model Context Protocol (MCP)，可以创建 MCP Server 来提供工具调用能力。
 
-### 1. 创建 MCP Server
+### 1. MCP Server 文件
 
-在服务器上创建一个 MCP Server：
+完整的 MCP Server 已创建在 `mcp/agent_manager_mcp.py`，提供以下工具：
 
-```python
-# mcp_server.py
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
-import asyncio
+| 工具名称 | 说明 |
+|---------|------|
+| `agent_list` | 列出所有智能体（龙虾池） |
+| `agent_get` | 获取智能体详情 |
+| `agent_create` | 创建新的智能体（养一只新龙虾） |
+| `agent_update` | 更新智能体配置 |
+| `agent_delete` | 删除智能体（放生龙虾） |
+| `agent_toggle` | 启用/禁用智能体 |
+| `agent_execute` | 执行智能体（派龙虾干活） |
+| `execution_status` | 查看执行状态 |
+| `execution_logs` | 查看执行日志 |
+| `execution_list` | 列出执行记录 |
+| `execution_cancel` | 取消执行 |
+| `group_list` | 列出智能体群组（龙虾群） |
+| `group_create` | 创建智能体群组 |
+| `group_execute` | 执行群组（派遣龙虾群） |
+| `config_export` | 导出所有配置 |
+| `config_import` | 导入配置 |
+| `metrics_summary` | 获取执行统计 |
+| `agent_metrics` | 获取智能体指标 |
 
-app = Server("agent-manager")
+### 2. 安装依赖
 
-@app.list_tools()
-async def list_tools():
-    return [
-        Tool(
-            name="execute_agent",
-            description="执行智能体管理系统中的Agent",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "agent_id": {"type": "string", "description": "Agent ID"},
-                    "input": {"type": "object", "description": "输入参数"}
-                },
-                "required": ["agent_id"]
-            }
-        ),
-        Tool(
-            name="list_agents",
-            description="列出所有可用的智能体",
-            inputSchema={"type": "object", "properties": {}}
-        ),
-        Tool(
-            name="get_execution_status",
-            description="获取执行状态",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "execution_id": {"type": "string", "description": "Execution ID"}
-                },
-                "required": ["execution_id"]
-            }
-        )
-    ]
-
-@app.call_tool()
-async def call_tool(name: str, arguments: dict):
-    import httpx
-
-    base_url = "http://localhost:8000/api"
-
-    async with httpx.AsyncClient() as client:
-        if name == "execute_agent":
-            response = await client.post(
-                f"{base_url}/executions/agents/{arguments['agent_id']}/execute",
-                json={"input_data": arguments.get("input", {})}
-            )
-            return [TextContent(type="text", text=response.text)]
-
-        elif name == "list_agents":
-            response = await client.get(f"{base_url}/agents")
-            return [TextContent(type="text", text=response.text)]
-
-        elif name == "get_execution_status":
-            response = await client.get(
-                f"{base_url}/executions/{arguments['execution_id']}"
-            )
-            return [TextContent(type="text", text=response.text)]
-
-    return [TextContent(type="text", text="Unknown tool")]
-
-async def main():
-    async with stdio_server() as (read_stream, write_stream):
-        await app.run(read_stream, write_stream, app.create_initialization_options())
-
-if __name__ == "__main__":
-    asyncio.run(main())
+```bash
+pip install mcp httpx
 ```
 
-### 2. 配置 Claude Code
+### 3. 配置 Claude Code
 
 在 Claude Code 配置文件中添加 MCP Server：
 
 ```json
-// ~/.claude/config.json
+// ~/.claude/settings.json 或项目级 .claude/settings.local.json
 {
   "mcpServers": {
     "agent-manager": {
-      "command": "python",
-      "args": ["/path/to/mcp_server.py"],
-      "env": {}
+      "command": "python3",
+      "args": ["/mnt/pzm/open-claude-ui/mcp/agent_manager_mcp.py"],
+      "env": {
+        "AGENT_MANAGER_URL": "http://localhost:8000/api",
+        "AGENT_MANAGER_TOKEN": "your-jwt-token-here"
+      }
     }
   }
 }
 ```
 
-### 3. 使用
+**配置说明：**
+- `AGENT_MANAGER_URL`: Agent Manager API 地址
+- `AGENT_MANAGER_TOKEN`: JWT 认证令牌（通过登录 API 获取）
+
+### 4. 获取 JWT Token
+
+```bash
+# 登录获取 token
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "your-password"}' \
+  | jq -r '.access_token'
+```
+
+### 5. 使用示例
 
 启动 Claude Code 后，可以直接调用：
 
 ```bash
 # Claude Code 中使用
 > 请列出所有可用的智能体
-> 请执行ID为xxx的智能体，输入参数为...
+> 请执行ID为xxx的智能体，输入消息为"帮我分析这段代码"
+> 查看执行ID为yyy的状态
+> 创建一个新的OpenAI类型智能体
 ```
 
 ---
@@ -332,145 +302,28 @@ curl http://localhost:8000/api/executions/{execution_id} \
 
 ---
 
-## 完整示例：MCP Server 集成
+## MCP Server 源码
 
-创建完整的 MCP Server 与 Agent Manager 集成：
+完整的 MCP Server 实现位于: `mcp/agent_manager_mcp.py`
 
-```python
-#!/usr/bin/env python3
-"""
-Agent Manager MCP Server
-用于 Claude Code 与智能体管理系统的集成
-"""
+### 工具列表
 
-import asyncio
-import httpx
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+| 类别 | 工具 | 说明 |
+|------|------|------|
+| 智能体管理 | agent_list, agent_get, agent_create, agent_update, agent_delete, agent_toggle | CRUD操作 |
+| 智能体执行 | agent_execute | 派龙虾干活 |
+| 执行管理 | execution_status, execution_logs, execution_list, execution_cancel | 执行监控 |
+| 群组管理 | group_list, group_create, group_execute | 龙虾群管理 |
+| 配置管理 | config_export, config_import | 配置导入导出 |
+| 监控统计 | metrics_summary, agent_metrics | 统计指标 |
 
-# 配置
-API_BASE = "http://localhost:8000/api"
-API_TOKEN = "your-jwt-token"
+### 在本项目中使用
 
-app = Server("agent-manager")
+本项目已配置 MCP Server，Claude Code 可以直接管理智能体：
 
-# HTTP 客户端
-async def api_request(method: str, path: str, data: dict = None):
-    headers = {"Authorization": f"Bearer {API_TOKEN}"}
-    async with httpx.AsyncClient() as client:
-        if method == "GET":
-            response = await client.get(f"{API_BASE}{path}", headers=headers)
-        elif method == "POST":
-            response = await client.post(
-                f"{API_BASE}{path}",
-                headers=headers,
-                json=data
-            )
-        return response.json()
-
-@app.list_tools()
-async def list_tools():
-    return [
-        Tool(
-            name="agent_list",
-            description="列出所有智能体",
-            inputSchema={"type": "object", "properties": {}}
-        ),
-        Tool(
-            name="agent_get",
-            description="获取智能体详情",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "agent_id": {"type": "string"}
-                },
-                "required": ["agent_id"]
-            }
-        ),
-        Tool(
-            name="agent_execute",
-            description="执行智能体",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "agent_id": {"type": "string"},
-                    "message": {"type": "string"}
-                },
-                "required": ["agent_id", "message"]
-            }
-        ),
-        Tool(
-            name="execution_status",
-            description="获取执行状态",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "execution_id": {"type": "string"}
-                },
-                "required": ["execution_id"]
-            }
-        ),
-        Tool(
-            name="execution_logs",
-            description="获取执行日志",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "execution_id": {"type": "string"}
-                },
-                "required": ["execution_id"]
-            }
-        )
-    ]
-
-@app.call_tool()
-async def call_tool(name: str, arguments: dict):
-    try:
-        if name == "agent_list":
-            result = await api_request("GET", "/agents")
-            return [TextContent(type="text", text=str(result))]
-
-        elif name == "agent_get":
-            result = await api_request(
-                "GET",
-                f"/agents/{arguments['agent_id']}"
-            )
-            return [TextContent(type="text", text=str(result))]
-
-        elif name == "agent_execute":
-            result = await api_request(
-                "POST",
-                f"/executions/agents/{arguments['agent_id']}/execute",
-                {"input_data": {"message": arguments["message"]}}
-            )
-            return [TextContent(type="text", text=str(result))]
-
-        elif name == "execution_status":
-            result = await api_request(
-                "GET",
-                f"/executions/{arguments['execution_id']}"
-            )
-            return [TextContent(type="text", text=str(result))]
-
-        elif name == "execution_logs":
-            result = await api_request(
-                "GET",
-                f"/executions/{arguments['execution_id']}/logs"
-            )
-            return [TextContent(type="text", text=str(result))]
-
-    except Exception as e:
-        return [TextContent(type="text", text=f"Error: {str(e)}")]
-
-    return [TextContent(type="text", text="Unknown tool")]
-
-async def main():
-    async with stdio_server() as (read_stream, write_stream):
-        await app.run(read_stream, write_stream, app.create_initialization_options())
-
-if __name__ == "__main__":
-    asyncio.run(main())
+```bash
+# 在当前项目中，Claude Code 可以使用以下命令：
+> 使用 agent_list 工具查看所有智能体
+> 使用 agent_create 工具创建一个新智能体
+> 使用 agent_execute 工具派智能体执行任务
 ```
-
-保存为 `mcp_agent_manager.py`，然后在 Claude Code 配置中添加即可使用。
