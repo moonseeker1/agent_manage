@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
+import zhCN from 'antd/locale/zh_CN';
 import { MainLayout } from '@/components/Layout';
 import Dashboard from '@/pages/Dashboard';
 import { AgentsList } from '@/pages/Agents';
@@ -23,14 +24,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 const App: React.FC = () => {
   return (
-    <ConfigProvider
+    <ConfigProvider locale={zhCN}
       theme={{
         token: {
           colorPrimary: '#1890ff',
         },
       }}
     >
-      <BrowserRouter>
+      <BrowserRouter basename="/agent">
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route

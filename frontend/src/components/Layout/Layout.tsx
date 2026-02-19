@@ -26,27 +26,27 @@ const menuItems = [
   {
     key: '/',
     icon: <DashboardOutlined />,
-    label: 'Dashboard',
+    label: '仪表盘',
   },
   {
     key: '/agents',
     icon: <RobotOutlined />,
-    label: 'Agents',
+    label: '智能体管理',
   },
   {
     key: '/groups',
     icon: <TeamOutlined />,
-    label: 'Groups',
+    label: '智能体群组',
   },
   {
     key: '/executions',
     icon: <PlayCircleOutlined />,
-    label: 'Executions',
+    label: '执行记录',
   },
   {
     key: '/monitor',
     icon: <MonitorOutlined />,
-    label: 'Monitor',
+    label: '实时监控',
   },
 ];
 
@@ -77,9 +77,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      message.success('Configuration exported successfully');
+      message.success('配置导出成功');
     } catch (error) {
-      message.error('Failed to export configuration');
+      message.error('配置导出失败');
     }
   };
 
@@ -87,14 +87,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     try {
       const result = await configApi.import(file);
       message.success(
-        `Import completed: ${result.agents_created} agents, ${result.groups_created} groups created`
+        `导入完成: 创建了 ${result.agents_created} 个智能体, ${result.groups_created} 个群组`
       );
       if (result.errors.length > 0) {
-        message.warning(`${result.errors.length} errors occurred during import`);
+        message.warning(`导入过程中发生 ${result.errors.length} 个错误`);
       }
       window.location.reload();
     } catch (error) {
-      message.error('Failed to import configuration');
+      message.error('配置导入失败');
     }
   };
 
@@ -102,7 +102,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     {
       key: 'profile',
       icon: <UserOutlined />,
-      label: user?.username || 'User',
+      label: user?.username || '用户',
     },
     {
       type: 'divider' as const,
@@ -110,13 +110,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     {
       key: 'export',
       icon: <DownloadOutlined />,
-      label: 'Export Config',
+      label: '导出配置',
       onClick: handleExport,
     },
     {
       key: 'import',
       icon: <UploadOutlined />,
-      label: 'Import Config',
+      label: '导入配置',
       onClick: () => fileInputRef.current?.click(),
     },
     {
@@ -125,7 +125,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: 'Logout',
+      label: '退出登录',
       onClick: handleLogout,
       danger: true,
     },
@@ -171,7 +171,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             fontWeight: 'bold',
           }}
         >
-          {collapsed ? 'AM' : 'Agent Manager'}
+          {collapsed ? '智' : '智能体管理'}
         </div>
         <Menu
           theme="dark"

@@ -14,7 +14,7 @@ import type {
 } from '@/types';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: '/agent/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -46,7 +46,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Clear auth and redirect to login
       localStorage.removeItem('auth-storage');
-      window.location.href = '/login';
+      window.location.href = '/agent/login';
     }
     return Promise.reject(error);
   }

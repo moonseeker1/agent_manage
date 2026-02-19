@@ -8,7 +8,7 @@ class WebSocketService {
   private reconnectDelay = 1000;
   private pingInterval: number | null = null;
 
-  connect(url: string = `ws://${window.location.host}/ws`) {
+  connect(url: string = `ws://${window.location.host}/agent/ws`) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       return;
     }
@@ -42,7 +42,7 @@ class WebSocketService {
   }
 
   connectToExecution(executionId: string) {
-    const url = `ws://${window.location.host}/ws/executions/${executionId}`;
+    const url = `ws://${window.location.host}/agent/ws/executions/${executionId}`;
     this.connect(url);
   }
 
