@@ -18,5 +18,8 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # 关系 - 与角色的多对多关系
+    roles = relationship("Role", secondary="user_roles", back_populates="users")
+
     def __repr__(self):
         return f"<User {self.username}>"

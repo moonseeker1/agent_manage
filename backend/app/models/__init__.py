@@ -1,6 +1,7 @@
 from app.models.agent import Agent, AgentGroup, AgentGroupMember, AgentType
 from app.models.execution import Execution, ExecutionLog, Metric, ExecutionStatus
 from app.models.user import User
+from app.models.permission import Skill, Permission, Role
 
 __all__ = [
     "Agent",
@@ -11,5 +12,8 @@ __all__ = [
     "ExecutionLog",
     "Metric",
     "ExecutionStatus",
-    "User"
+    "User",
+    "Skill",
+    "Permission",
+    "Role"
 ]
