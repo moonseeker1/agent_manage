@@ -7,7 +7,7 @@ import { AgentsList } from '@/pages/Agents';
 import { GroupsList } from '@/pages/Groups';
 import { ExecutionsList } from '@/pages/Executions';
 import Monitor from '@/pages/Monitor';
-import { Login } from '@/pages/Login';
+import Login from '@/pages/Login';
 import { useAuthStore } from '@/stores/authStore';
 
 // Protected Route component

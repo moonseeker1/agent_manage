@@ -23,7 +23,9 @@
       "Bash(awk '{print \"\"\"\"PostgreSQL: Running on port 5432\"\"\"\"}' echo \"\" echo \"Redis连接:\" docker ps)",
       "Bash(awk:*)",
       "Bash(pkill:*)",
-      "Bash(nginx:*)"
+      "Bash(nginx:*)",
+      "Bash(xargs:*)",
+      "Bash(grep -o '<title>.*</title>' echo \"\" echo \"测试API:\" curl -s http://localhost/agent/api/auth/login -X POST -H \"Content-Type: application/json\" -d '{\"\"\"\"username\"\"\"\":\"\"\"\"admin\"\"\"\",\"\"\"\"password\"\"\"\":\"\"\"\"admin123\"\"\"\"}')"
     ]
   }
 }
