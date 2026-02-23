@@ -219,31 +219,42 @@ async def execute_agent_task(execution_id: str, agent_id: str, input_data: Optio
     from uuid import UUID
     from app.services.agent_service import AgentService
 
-    async with async_session() as db:
-        execution_service = ExecutionService(db)
-        agent_service = AgentService(db)
+    logger.info(f"Starting execute_agent_task for execution {execution_id}, agent {agent_id}")
 
-        try:
+    try:
+        async with async_session() as db:
+            execution_service = ExecutionService(db)
+            agent_service = AgentService(db)
+
             # Update status to running
+            logger.info(f"Updating execution {execution_id} to running status")
             await execution_service.start_execution(UUID(execution_id))
+            await db.commit()
+
             await execution_service.add_log(
                 UUID(execution_id),
                 "info",
                 f"Starting execution for agent {agent_id}"
             )
+            await db.commit()
 
             # Get agent
             agent = await agent_service.get_agent(UUID(agent_id))
             if not agent:
                 raise ValueError(f"Agent {agent_id} not found")
 
+            logger.info(f"Found agent: {agent.name}, type: {agent.agent_type}")
+
             # Get executor
             executor = get_executor(agent.agent_type, agent.config)
 
             # Execute
             start_time = datetime.utcnow()
+            logger.info(f"Executing agent {agent.name}...")
             result = await executor.execute(agent.config, input_data or {})
             end_time = datetime.utcnow()
+
+            logger.info(f"Execution result: success={result.get('success')}")
 
             # Log result
             await execution_service.add_log(
@@ -271,6 +282,8 @@ async def execute_agent_task(execution_id: str, agent_id: str, input_data: Optio
                     unit="tokens"
                 )
 
+            await db.commit()
+
             # Update execution status
             if result.get("success"):
                 await execution_service.complete_execution(
@@ -283,17 +296,26 @@ async def execute_agent_task(execution_id: str, agent_id: str, input_data: Optio
                     error_message=result.get("error", "Unknown error")
                 )
 
-        except Exception as e:
-            logger.exception(f"Execution failed: {e}")
-            await execution_service.add_log(
-                UUID(execution_id),
-                "error",
-                f"Execution failed: {str(e)}"
-            )
-            await execution_service.complete_execution(
-                UUID(execution_id),
-                error_message=str(e)
-            )
+            await db.commit()
+            logger.info(f"Execution {execution_id} completed successfully")
+
+    except Exception as e:
+        logger.exception(f"Execution failed: {e}")
+        try:
+            async with async_session() as db:
+                execution_service = ExecutionService(db)
+                await execution_service.add_log(
+                    UUID(execution_id),
+                    "error",
+                    f"Execution failed: {str(e)}"
+                )
+                await execution_service.complete_execution(
+                    UUID(execution_id),
+                    error_message=str(e)
+                )
+                await db.commit()
+        except Exception as inner_e:
+            logger.exception(f"Failed to update execution status: {inner_e}")
 
 
 async def execute_group_task(execution_id: str, group_id: str, input_data: Optional[dict] = None):
@@ -301,18 +323,23 @@ async def execute_group_task(execution_id: str, group_id: str, input_data: Optio
     from uuid import UUID
     from app.services.agent_service import AgentGroupService
 
-    async with async_session() as db:
-        execution_service = ExecutionService(db)
-        group_service = AgentGroupService(db)
+    logger.info(f"Starting execute_group_task for execution {execution_id}, group {group_id}")
 
-        try:
+    try:
+        async with async_session() as db:
+            execution_service = ExecutionService(db)
+            group_service = AgentGroupService(db)
+
             # Update status to running
             await execution_service.start_execution(UUID(execution_id))
+            await db.commit()
+
             await execution_service.add_log(
                 UUID(execution_id),
                 "info",
                 f"Starting group execution for group {group_id}"
             )
+            await db.commit()
 
             # Get group
             group = await group_service.get_group(UUID(group_id))
@@ -347,6 +374,7 @@ async def execute_group_task(execution_id: str, group_id: str, input_data: Optio
                         "info",
                         f"Executing agent {member.agent.name}"
                     )
+                    await db.commit()
 
                     executor = get_executor(member.agent.agent_type, member.agent.config)
                     result = await executor.execute(member.agent.config, current_input)
@@ -371,15 +399,24 @@ async def execute_group_task(execution_id: str, group_id: str, input_data: Optio
                 UUID(execution_id),
                 output_data={"results": results}
             )
+            await db.commit()
 
-        except Exception as e:
-            logger.exception(f"Group execution failed: {e}")
-            await execution_service.add_log(
-                UUID(execution_id),
-                "error",
-                f"Group execution failed: {str(e)}"
-            )
-            await execution_service.complete_execution(
-                UUID(execution_id),
-                error_message=str(e)
-            )
+            logger.info(f"Group execution {execution_id} completed successfully")
+
+    except Exception as e:
+        logger.exception(f"Group execution failed: {e}")
+        try:
+            async with async_session() as db:
+                execution_service = ExecutionService(db)
+                await execution_service.add_log(
+                    UUID(execution_id),
+                    "error",
+                    f"Group execution failed: {str(e)}"
+                )
+                await execution_service.complete_execution(
+                    UUID(execution_id),
+                    error_message=str(e)
+                )
+                await db.commit()
+        except Exception as inner_e:
+            logger.exception(f"Failed to update group execution status: {inner_e}")

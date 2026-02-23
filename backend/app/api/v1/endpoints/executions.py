@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 from uuid import UUID
+import asyncio
 
 from app.core.database import get_db
 from app.services.execution_service import ExecutionService
@@ -89,7 +90,6 @@ async def cancel_execution(
 async def execute_agent(
     agent_id: UUID,
     execution_data: ExecutionCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """Execute a single agent"""
@@ -110,12 +110,16 @@ async def execute_agent(
         input_data=execution_data.input_data
     )
 
-    # Start background task
-    background_tasks.add_task(
-        execute_agent_task,
-        str(execution.id),
-        str(agent_id),
-        execution_data.input_data
+    # Commit to ensure execution is saved before background task starts
+    await db.commit()
+
+    # Start background task using asyncio
+    asyncio.create_task(
+        execute_agent_task(
+            str(execution.id),
+            str(agent_id),
+            execution_data.input_data
+        )
     )
 
     return ExecutionResponse.model_validate(execution)
@@ -126,7 +130,6 @@ async def execute_agent(
 async def execute_group(
     group_id: UUID,
     execution_data: ExecutionCreate,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """Execute an agent group"""
@@ -145,12 +148,16 @@ async def execute_group(
         input_data=execution_data.input_data
     )
 
-    # Start background task
-    background_tasks.add_task(
-        execute_group_task,
-        str(execution.id),
-        str(group_id),
-        execution_data.input_data
+    # Commit to ensure execution is saved before background task starts
+    await db.commit()
+
+    # Start background task using asyncio
+    asyncio.create_task(
+        execute_group_task(
+            str(execution.id),
+            str(group_id),
+            execution_data.input_data
+        )
     )
 
     return ExecutionResponse.model_validate(execution)
