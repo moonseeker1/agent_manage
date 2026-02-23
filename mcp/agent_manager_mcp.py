@@ -294,6 +294,156 @@ async def list_tools():
                 },
                 "required": ["agent_id"]
             }
+        ),
+
+        # ========== 技能管理 ==========
+        Tool(
+            name="skill_list",
+            description="🎯 列出所有技能",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "page": {"type": "integer", "default": 1},
+                    "page_size": {"type": "integer", "default": 20},
+                    "category": {"type": "string", "description": "按分类筛选"}
+                }
+            }
+        ),
+        Tool(
+            name="skill_create",
+            description="➕ 创建技能",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "技能名称"},
+                    "code": {"type": "string", "description": "技能代码（唯一标识）"},
+                    "description": {"type": "string", "description": "描述"},
+                    "category": {"type": "string", "description": "分类"},
+                    "config": {"type": "object", "description": "配置"}
+                },
+                "required": ["name", "code"]
+            }
+        ),
+        Tool(
+            name="skill_delete",
+            description="🗑️ 删除技能",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "skill_id": {"type": "string", "description": "技能ID"}
+                },
+                "required": ["skill_id"]
+            }
+        ),
+
+        # ========== 智能体技能绑定 ==========
+        Tool(
+            name="agent_skill_list",
+            description="📋 查看智能体绑定的技能",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "agent_id": {"type": "string", "description": "智能体ID"}
+                },
+                "required": ["agent_id"]
+            }
+        ),
+        Tool(
+            name="agent_skill_bind",
+            description="🔗 给智能体绑定技能",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "agent_id": {"type": "string", "description": "智能体ID"},
+                    "skill_id": {"type": "string", "description": "技能ID"},
+                    "priority": {"type": "integer", "description": "优先级（数字越小越高）", "default": 100},
+                    "config": {"type": "object", "description": "绑定配置"}
+                },
+                "required": ["agent_id", "skill_id"]
+            }
+        ),
+        Tool(
+            name="agent_skill_unbind",
+            description="✂️ 解除智能体技能绑定",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "agent_id": {"type": "string", "description": "智能体ID"},
+                    "skill_id": {"type": "string", "description": "技能ID"}
+                },
+                "required": ["agent_id", "skill_id"]
+            }
+        ),
+
+        # ========== 权限管理 ==========
+        Tool(
+            name="permission_list",
+            description="🔑 列出所有权限",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "resource": {"type": "string", "description": "按资源类型筛选"}
+                }
+            }
+        ),
+        Tool(
+            name="role_list",
+            description="👥 列出所有角色",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "page": {"type": "integer", "default": 1},
+                    "page_size": {"type": "integer", "default": 20}
+                }
+            }
+        ),
+        Tool(
+            name="role_create",
+            description="➕ 创建角色",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "角色名称"},
+                    "code": {"type": "string", "description": "角色代码"},
+                    "description": {"type": "string", "description": "描述"},
+                    "permission_ids": {"type": "array", "items": {"type": "string"}, "description": "权限ID列表"}
+                },
+                "required": ["name", "code"]
+            }
+        ),
+        Tool(
+            name="role_assign",
+            description="👤 给用户分配角色",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "role_id": {"type": "string", "description": "角色ID"},
+                    "user_id": {"type": "string", "description": "用户ID"}
+                },
+                "required": ["role_id", "user_id"]
+            }
+        ),
+
+        # ========== 审计日志 ==========
+        Tool(
+            name="audit_logs",
+            description="📋 查看审计日志",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "page": {"type": "integer", "default": 1},
+                    "page_size": {"type": "integer", "default": 20},
+                    "action": {"type": "string", "description": "按操作类型筛选"},
+                    "resource_type": {"type": "string", "description": "按资源类型筛选"}
+                }
+            }
+        ),
+
+        # ========== 我的权限 ==========
+        Tool(
+            name="my_permissions",
+            description="🔐 查看我的权限和技能",
+            inputSchema={"type": "object", "properties": {}}
         )
     ]
 
@@ -382,6 +532,59 @@ async def call_tool(name: str, arguments: dict):
 
         elif name == "agent_metrics":
             result = await api_request("GET", f"/metrics/agents/{arguments['agent_id']}")
+
+        # ========== 技能管理 ==========
+        elif name == "skill_list":
+            result = await api_request("GET", "/rbac/skills", params=arguments)
+
+        elif name == "skill_create":
+            result = await api_request("POST", "/rbac/skills", data=arguments)
+
+        elif name == "skill_delete":
+            result = await api_request("DELETE", f"/rbac/skills/{arguments['skill_id']}")
+
+        # ========== 智能体技能绑定 ==========
+        elif name == "agent_skill_list":
+            result = await api_request("GET", f"/rbac/agents/{arguments['agent_id']}/skills")
+
+        elif name == "agent_skill_bind":
+            agent_id = arguments.pop("agent_id")
+            skill_id = arguments.pop("skill_id")
+            result = await api_request(
+                "POST",
+                f"/rbac/agents/{agent_id}/skills/{skill_id}",
+                data=arguments
+            )
+
+        elif name == "agent_skill_unbind":
+            result = await api_request(
+                "DELETE",
+                f"/rbac/agents/{arguments['agent_id']}/skills/{arguments['skill_id']}"
+            )
+
+        # ========== 权限管理 ==========
+        elif name == "permission_list":
+            result = await api_request("GET", "/rbac/permissions", params=arguments)
+
+        elif name == "role_list":
+            result = await api_request("GET", "/rbac/roles", params=arguments)
+
+        elif name == "role_create":
+            result = await api_request("POST", "/rbac/roles", data=arguments)
+
+        elif name == "role_assign":
+            result = await api_request(
+                "POST",
+                f"/rbac/roles/{arguments['role_id']}/users/{arguments['user_id']}"
+            )
+
+        # ========== 审计日志 ==========
+        elif name == "audit_logs":
+            result = await api_request("GET", "/rbac/audit-logs", params=arguments)
+
+        # ========== 我的权限 ==========
+        elif name == "my_permissions":
+            result = await api_request("GET", "/rbac/users/me/permissions")
 
         else:
             result = {"error": f"Unknown tool: {name}"}

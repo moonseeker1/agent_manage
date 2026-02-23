@@ -86,10 +86,10 @@ const GroupsList: React.FC = () => {
 
       if (editingGroup) {
         await updateGroup(editingGroup.id, data);
-        message.success('Group updated successfully');
+        message.success('群组更新成功');
       } else {
         await createGroup(data);
-        message.success('Group created successfully');
+        message.success('群组创建成功');
       }
 
       setModalOpen(false);
@@ -97,16 +97,16 @@ const GroupsList: React.FC = () => {
       setSelectedAgents([]);
     } catch (error: any) {
       if (error.errorFields) return;
-      message.error(error.message || 'Operation failed');
+      message.error(error.message || '操作失败');
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await deleteGroup(id);
-      message.success('Group deleted successfully');
+      message.success('群组删除成功');
     } catch (error: any) {
-      message.error(error.message || 'Delete failed');
+      message.error(error.message || '删除失败');
     }
   };
 
@@ -124,11 +124,11 @@ const GroupsList: React.FC = () => {
         : undefined;
 
       await executeGroup(executingGroup!.id, inputData);
-      message.success('Group execution started');
+      message.success('群组执行已启动');
       setExecuteModalOpen(false);
     } catch (error: any) {
       if (error.errorFields) return;
-      message.error(error.message || 'Execution failed');
+      message.error(error.message || '执行失败');
     }
   };
 
@@ -139,28 +139,28 @@ const GroupsList: React.FC = () => {
 
   const columns = [
     {
-      title: 'Name',
+      title: '名称',
       dataIndex: 'name',
       key: 'name',
     },
     {
-      title: 'Description',
+      title: '描述',
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
     },
     {
-      title: 'Execution Mode',
+      title: '执行模式',
       dataIndex: 'execution_mode',
       key: 'execution_mode',
       render: (mode: string) => (
         <Tag color={mode === 'parallel' ? 'blue' : 'green'}>
-          {mode.toUpperCase()}
+          {mode === 'parallel' ? '并行' : '顺序'}
         </Tag>
       ),
     },
     {
-      title: 'Members',
+      title: '成员',
       dataIndex: 'members',
       key: 'members',
       render: (members: any[]) => (
@@ -172,7 +172,7 @@ const GroupsList: React.FC = () => {
       ),
     },
     {
-      title: 'Actions',
+      title: '操作',
       key: 'actions',
       render: (_: any, record: AgentGroup) => (
         <Space>
@@ -182,7 +182,7 @@ const GroupsList: React.FC = () => {
             size="small"
             onClick={() => handleExecute(record)}
           >
-            Execute
+            执行
           </Button>
           <Button
             icon={<EditOutlined />}
@@ -190,7 +190,7 @@ const GroupsList: React.FC = () => {
             onClick={() => handleEdit(record)}
           />
           <Popconfirm
-            title="Delete group?"
+            title="确定删除此群组？"
             onConfirm={() => handleDelete(record.id)}
           >
             <Button icon={<DeleteOutlined />} size="small" danger />
@@ -203,9 +203,9 @@ const GroupsList: React.FC = () => {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <Title level={2}>Agent Groups</Title>
+        <Title level={2}>智能体群组</Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          Create Group
+          创建群组
         </Button>
       </div>
 
@@ -220,7 +220,7 @@ const GroupsList: React.FC = () => {
       </Card>
 
       <Modal
-        title={editingGroup ? 'Edit Group' : 'Create Group'}
+        title={editingGroup ? '编辑群组' : '创建群组'}
         open={modalOpen}
         onOk={handleSubmit}
         onCancel={() => setModalOpen(false)}
@@ -229,29 +229,29 @@ const GroupsList: React.FC = () => {
         <Form form={form} layout="vertical">
           <Form.Item
             name="name"
-            label="Name"
-            rules={[{ required: true, message: 'Please enter group name' }]}
+            label="名称"
+            rules={[{ required: true, message: '请输入群组名称' }]}
           >
-            <Input placeholder="Group name" />
+            <Input placeholder="群组名称" />
           </Form.Item>
 
-          <Form.Item name="description" label="Description">
-            <TextArea rows={2} placeholder="Group description" />
+          <Form.Item name="description" label="描述">
+            <TextArea rows={2} placeholder="群组描述" />
           </Form.Item>
 
-          <Form.Item name="execution_mode" label="Execution Mode">
+          <Form.Item name="execution_mode" label="执行模式">
             <Select>
-              <Select.Option value="sequential">Sequential</Select.Option>
-              <Select.Option value="parallel">Parallel</Select.Option>
+              <Select.Option value="sequential">顺序执行</Select.Option>
+              <Select.Option value="parallel">并行执行</Select.Option>
             </Select>
           </Form.Item>
 
-          <Form.Item label="Select Agents">
+          <Form.Item label="选择智能体">
             <Transfer
               dataSource={agentOptions}
-              titles={['Available Agents', 'Selected Agents']}
+              titles={['可选智能体', '已选智能体']}
               targetKeys={selectedAgents}
-              onChange={setSelectedAgents}
+              onChange={(keys) => setSelectedAgents(keys as string[])}
               render={(item) => item.title}
               listStyle={{ width: 280, height: 300 }}
             />
@@ -260,7 +260,7 @@ const GroupsList: React.FC = () => {
       </Modal>
 
       <Modal
-        title={`Execute Group: ${executingGroup?.name}`}
+        title={`执行群组: ${executingGroup?.name}`}
         open={executeModalOpen}
         onOk={handleExecuteSubmit}
         onCancel={() => setExecuteModalOpen(false)}
@@ -268,12 +268,12 @@ const GroupsList: React.FC = () => {
         <Form form={executeForm} layout="vertical">
           <Form.Item
             name="input_data"
-            label="Input Data (JSON)"
-            extra="Enter input data as JSON object"
+            label="输入数据（JSON格式）"
+            extra="请输入JSON格式的输入数据"
           >
             <TextArea
               rows={6}
-              placeholder='{"message": "Hello, agents!"}'
+              placeholder='{"message": "你好，智能体们！"}'
             />
           </Form.Item>
         </Form>

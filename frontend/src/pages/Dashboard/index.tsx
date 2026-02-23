@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Table, Tag, Typography } from 'antd';
+import { Row, Col, Card, Statistic, Table, Typography } from 'antd';
 import {
   RobotOutlined,
   TeamOutlined,
@@ -35,7 +35,7 @@ const Dashboard: React.FC = () => {
       setMetrics(execMetrics);
       setAgentMetrics(agentMetricsData);
     } catch (error) {
-      console.error('Failed to load metrics:', error);
+      console.error('加载指标失败:', error);
     }
   };
 
@@ -59,49 +59,49 @@ const Dashboard: React.FC = () => {
 
   const agentColumns = [
     {
-      title: 'Agent Name',
+      title: '智能体名称',
       dataIndex: 'agent_name',
       key: 'agent_name',
     },
     {
-      title: 'Total Executions',
+      title: '执行次数',
       dataIndex: 'total_executions',
       key: 'total_executions',
     },
     {
-      title: 'Success Rate',
+      title: '成功率',
       dataIndex: 'success_rate',
       key: 'success_rate',
       render: (rate: number) => `${rate.toFixed(1)}%`,
     },
     {
-      title: 'Avg Duration',
+      title: '平均耗时',
       dataIndex: 'avg_duration',
       key: 'avg_duration',
       render: (duration: number | null) =>
-        duration ? `${duration.toFixed(2)}s` : 'N/A',
+        duration ? `${duration.toFixed(2)}秒` : '暂无',
     },
   ];
 
   return (
     <div>
-      <Title level={2}>Dashboard</Title>
+      <Title level={2}>控制台</Title>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Total Agents"
+              title="智能体总数"
               value={agents.length}
               prefix={<RobotOutlined />}
-              suffix={<span style={{ fontSize: 14 }}>/ {enabledAgents} enabled</span>}
+              suffix={<span style={{ fontSize: 14 }}>/ {enabledAgents} 启用</span>}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Agent Groups"
+              title="智能体群组"
               value={groups.length}
               prefix={<TeamOutlined />}
             />
@@ -110,7 +110,7 @@ const Dashboard: React.FC = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Running Executions"
+              title="运行中任务"
               value={runningExecutions}
               prefix={<PlayCircleOutlined />}
               valueStyle={{ color: '#1890ff' }}
@@ -120,7 +120,7 @@ const Dashboard: React.FC = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Total Executions (7d)"
+              title="7天执行总数"
               value={metrics?.total_executions || 0}
               prefix={<PlayCircleOutlined />}
             />
@@ -130,16 +130,16 @@ const Dashboard: React.FC = () => {
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} lg={12}>
-          <Card title="Executions per Day (Last 7 Days)">
+          <Card title="每日执行量（最近7天）">
             <Column {...columnConfig} height={250} />
           </Card>
         </Col>
         <Col xs={24} lg={12}>
-          <Card title="Execution Status">
+          <Card title="执行状态统计">
             <Row gutter={16}>
               <Col span={8}>
                 <Statistic
-                  title="Completed"
+                  title="已完成"
                   value={metrics?.completed_executions || 0}
                   prefix={<CheckCircleOutlined />}
                   valueStyle={{ color: '#52c41a' }}
@@ -147,7 +147,7 @@ const Dashboard: React.FC = () => {
               </Col>
               <Col span={8}>
                 <Statistic
-                  title="Failed"
+                  title="失败"
                   value={metrics?.failed_executions || 0}
                   prefix={<CloseCircleOutlined />}
                   valueStyle={{ color: '#ff4d4f' }}
@@ -155,9 +155,9 @@ const Dashboard: React.FC = () => {
               </Col>
               <Col span={8}>
                 <Statistic
-                  title="Avg Duration"
-                  value={metrics?.avg_duration?.toFixed(2) || 'N/A'}
-                  suffix={metrics?.avg_duration ? 's' : ''}
+                  title="平均耗时"
+                  value={metrics?.avg_duration?.toFixed(2) || '暂无'}
+                  suffix={metrics?.avg_duration ? '秒' : ''}
                 />
               </Col>
             </Row>
@@ -167,7 +167,7 @@ const Dashboard: React.FC = () => {
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col span={24}>
-          <Card title="Agent Performance">
+          <Card title="智能体性能">
             <Table
               columns={agentColumns}
               dataSource={agentMetrics}

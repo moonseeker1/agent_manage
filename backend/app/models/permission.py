@@ -3,7 +3,7 @@ Skill 和权限管理模型
 """
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Boolean, Table
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Boolean, Table, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -31,6 +31,14 @@ user_roles = Table(
     Base.metadata,
     Column('user_id', UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE')),
     Column('role_id', UUID(as_uuid=True), ForeignKey('roles.id', ondelete='CASCADE'))
+)
+
+# 智能体-技能绑定表
+agent_skills = Table(
+    'agent_skills',
+    Base.metadata,
+    Column('agent_id', UUID(as_uuid=True), ForeignKey('agents.id', ondelete='CASCADE')),
+    Column('skill_id', UUID(as_uuid=True), ForeignKey('skills.id', ondelete='CASCADE'))
 )
 
 
@@ -94,3 +102,38 @@ class Role(Base):
 
     def __repr__(self):
         return f"<Role {self.code}>"
+
+
+class AgentSkillBinding(Base):
+    """智能体-技能绑定模型 - 详细绑定关系"""
+    __tablename__ = "agent_skill_bindings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    agent_id = Column(UUID(as_uuid=True), ForeignKey('agents.id', ondelete='CASCADE'), nullable=False)
+    skill_id = Column(UUID(as_uuid=True), ForeignKey('skills.id', ondelete='CASCADE'), nullable=False)
+    config = Column(JSONB, default={})           # 该智能体使用此技能的专属配置
+    priority = Column(Integer, default=100)      # 技能优先级（数字越小优先级越高）
+    is_enabled = Column(Boolean, default=True)   # 是否启用
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<AgentSkillBinding agent={self.agent_id} skill={self.skill_id}>"
+
+
+class AuditLog(Base):
+    """审计日志模型 - 记录所有关键操作"""
+    __tablename__ = "audit_logs"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='SET NULL'))
+    action = Column(String(50), nullable=False)      # 操作类型 (create/update/delete/execute)
+    resource_type = Column(String(50), nullable=False)  # 资源类型 (agent/skill/role/permission)
+    resource_id = Column(UUID(as_uuid=True))         # 资源ID
+    detail = Column(JSONB, default={})               # 操作详情
+    ip_address = Column(String(50))                  # IP地址
+    user_agent = Column(String(255))                 # 用户代理
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<AuditLog {self.action} {self.resource_type}>"

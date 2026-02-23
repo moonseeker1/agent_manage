@@ -32,6 +32,12 @@ const agentTypeColors: Record<AgentType, string> = {
   custom: 'orange',
 };
 
+const agentTypeLabels: Record<AgentType, string> = {
+  mcp: 'MCP服务',
+  openai: 'OpenAI',
+  custom: '自定义',
+};
+
 const AgentsList: React.FC = () => {
   const {
     agents,
@@ -95,32 +101,32 @@ const AgentsList: React.FC = () => {
 
       if (editingAgent) {
         await updateAgent(editingAgent.id, data);
-        message.success('Agent updated successfully');
+        message.success('智能体更新成功');
       } else {
         await createAgent(data);
-        message.success('Agent created successfully');
+        message.success('智能体创建成功');
       }
 
       setModalOpen(false);
       form.resetFields();
     } catch (error: any) {
       if (error.errorFields) return;
-      message.error(error.message || 'Operation failed');
+      message.error(error.message || '操作失败');
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
       await deleteAgent(id);
-      message.success('Agent deleted successfully');
+      message.success('智能体删除成功');
     } catch (error: any) {
-      message.error(error.message || 'Delete failed');
+      message.error(error.message || '删除失败');
     }
   };
 
   const handleToggle = async (id: string, enabled: boolean) => {
     await toggleAgent(id, enabled);
-    message.success(`Agent ${enabled ? 'enabled' : 'disabled'}`);
+    message.success(`智能体已${enabled ? '启用' : '禁用'}`);
   };
 
   const handleExecute = (agent: Agent) => {
@@ -137,42 +143,42 @@ const AgentsList: React.FC = () => {
         : undefined;
 
       await executeAgent(executingAgent!.id, inputData);
-      message.success('Execution started');
+      message.success('执行任务已启动');
       setExecuteModalOpen(false);
     } catch (error: any) {
       if (error.errorFields) return;
-      message.error(error.message || 'Execution failed');
+      message.error(error.message || '执行失败');
     }
   };
 
   const columns = [
     {
-      title: 'Name',
+      title: '名称',
       dataIndex: 'name',
       key: 'name',
       render: (name: string, record: Agent) => (
         <Space>
           {name}
-          {!record.enabled && <Tag color="red">Disabled</Tag>}
+          {!record.enabled && <Tag color="red">已禁用</Tag>}
         </Space>
       ),
     },
     {
-      title: 'Type',
+      title: '类型',
       dataIndex: 'agent_type',
       key: 'agent_type',
       render: (type: AgentType) => (
-        <Tag color={agentTypeColors[type]}>{type.toUpperCase()}</Tag>
+        <Tag color={agentTypeColors[type]}>{agentTypeLabels[type]}</Tag>
       ),
     },
     {
-      title: 'Description',
+      title: '描述',
       dataIndex: 'description',
       key: 'description',
       ellipsis: true,
     },
     {
-      title: 'Enabled',
+      title: '状态',
       dataIndex: 'enabled',
       key: 'enabled',
       render: (enabled: boolean, record: Agent) => (
@@ -183,7 +189,7 @@ const AgentsList: React.FC = () => {
       ),
     },
     {
-      title: 'Actions',
+      title: '操作',
       key: 'actions',
       render: (_: any, record: Agent) => (
         <Space>
@@ -194,7 +200,7 @@ const AgentsList: React.FC = () => {
             onClick={() => handleExecute(record)}
             disabled={!record.enabled}
           >
-            Execute
+            执行
           </Button>
           <Button
             icon={<EditOutlined />}
@@ -202,7 +208,7 @@ const AgentsList: React.FC = () => {
             onClick={() => handleEdit(record)}
           />
           <Popconfirm
-            title="Delete agent?"
+            title="确定删除此智能体？"
             onConfirm={() => handleDelete(record.id)}
           >
             <Button icon={<DeleteOutlined />} size="small" danger />
@@ -215,9 +221,9 @@ const AgentsList: React.FC = () => {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <Title level={2}>Agents</Title>
+        <Title level={2}>智能体管理</Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-          Create Agent
+          创建智能体
         </Button>
       </div>
 
@@ -232,7 +238,7 @@ const AgentsList: React.FC = () => {
       </Card>
 
       <Modal
-        title={editingAgent ? 'Edit Agent' : 'Create Agent'}
+        title={editingAgent ? '编辑智能体' : '创建智能体'}
         open={modalOpen}
         onOk={handleSubmit}
         onCancel={() => setModalOpen(false)}
@@ -241,36 +247,36 @@ const AgentsList: React.FC = () => {
         <Form form={form} layout="vertical">
           <Form.Item
             name="name"
-            label="Name"
-            rules={[{ required: true, message: 'Please enter agent name' }]}
+            label="名称"
+            rules={[{ required: true, message: '请输入智能体名称' }]}
           >
-            <Input placeholder="Agent name" />
+            <Input placeholder="智能体名称" />
           </Form.Item>
 
-          <Form.Item name="description" label="Description">
-            <TextArea rows={2} placeholder="Agent description" />
+          <Form.Item name="description" label="描述">
+            <TextArea rows={2} placeholder="智能体描述" />
           </Form.Item>
 
           <Form.Item
             name="agent_type"
-            label="Type"
+            label="类型"
             rules={[{ required: true }]}
           >
             <Select disabled={!!editingAgent}>
               <Select.Option value="openai">OpenAI</Select.Option>
-              <Select.Option value="mcp">MCP Server</Select.Option>
-              <Select.Option value="custom">Custom</Select.Option>
+              <Select.Option value="mcp">MCP服务</Select.Option>
+              <Select.Option value="custom">自定义</Select.Option>
             </Select>
           </Form.Item>
 
-          <Form.Item name="enabled" label="Enabled" valuePropName="checked">
+          <Form.Item name="enabled" label="启用" valuePropName="checked">
             <Switch />
           </Form.Item>
 
           <Form.Item
             name="config"
-            label="Configuration (JSON)"
-            extra="Enter configuration as JSON object"
+            label="配置（JSON格式）"
+            extra="请输入JSON格式的配置对象"
           >
             <TextArea
               rows={6}
@@ -281,7 +287,7 @@ const AgentsList: React.FC = () => {
       </Modal>
 
       <Modal
-        title={`Execute Agent: ${executingAgent?.name}`}
+        title={`执行智能体: ${executingAgent?.name}`}
         open={executeModalOpen}
         onOk={handleExecuteSubmit}
         onCancel={() => setExecuteModalOpen(false)}
@@ -289,12 +295,12 @@ const AgentsList: React.FC = () => {
         <Form form={executeForm} layout="vertical">
           <Form.Item
             name="input_data"
-            label="Input Data (JSON)"
-            extra="Enter input data as JSON object"
+            label="输入数据（JSON格式）"
+            extra="请输入JSON格式的输入数据"
           >
             <TextArea
               rows={6}
-              placeholder='{"message": "Hello, agent!"}'
+              placeholder='{"message": "你好，智能体！"}'
             />
           </Form.Item>
         </Form>

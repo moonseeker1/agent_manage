@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Layout, Menu, theme, Dropdown, Avatar, Space, Button, Upload, message } from 'antd';
+import { Layout, Menu, theme, Dropdown, Avatar, Space, message } from 'antd';
 import {
   DashboardOutlined,
   RobotOutlined,
@@ -10,7 +10,6 @@ import {
   LogoutOutlined,
   DownloadOutlined,
   UploadOutlined,
-  SettingOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';

@@ -29,6 +29,14 @@ const statusColors: Record<ExecutionStatus, string> = {
   cancelled: 'warning',
 };
 
+const statusLabels: Record<ExecutionStatus, string> = {
+  pending: '等待中',
+  running: '运行中',
+  completed: '已完成',
+  failed: '失败',
+  cancelled: '已取消',
+};
+
 const Monitor: React.FC = () => {
   const { executions, agents, fetchExecutions, fetchAgents } = useAgentStore();
   const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
@@ -41,12 +49,12 @@ const Monitor: React.FC = () => {
     fetchExecutions({ page_size: 50, status: 'running' });
     fetchAgents({ page_size: 100 });
 
-    // Connect WebSocket
+    // 连接 WebSocket
     wsService.connect();
 
-    // Subscribe to updates
+    // 订阅更新
     const unsubUpdate = wsService.subscribe('execution_update', (data) => {
-      message.info(`Execution ${data.execution_id}: ${data.status}`);
+      message.info(`执行 ${data.execution_id}: ${data.status}`);
       fetchExecutions({ page_size: 50 });
     });
 
@@ -70,7 +78,7 @@ const Monitor: React.FC = () => {
   const handleSelectExecution = (executionId: string) => {
     setSelectedExecutionId(executionId);
     wsService.connectToExecution(executionId);
-    // Load existing logs
+    // 加载已有日志
     setLogs([]);
   };
 
@@ -80,7 +88,7 @@ const Monitor: React.FC = () => {
 
   const handleTestAgent = async () => {
     if (!selectedAgentId || !testInput.trim()) {
-      message.warning('Please select an agent and enter input');
+      message.warning('请选择智能体并输入内容');
       return;
     }
 
@@ -89,9 +97,9 @@ const Monitor: React.FC = () => {
       const execution = await executeAgent(selectedAgentId, { message: testInput });
       handleSelectExecution(execution.id);
       setTestInput('');
-      message.success('Execution started');
+      message.success('执行已启动');
     } catch (error: any) {
-      message.error(error.message || 'Failed to start execution');
+      message.error(error.message || '启动执行失败');
     }
   };
 
@@ -99,11 +107,11 @@ const Monitor: React.FC = () => {
 
   return (
     <div>
-      <Title level={2}>Monitor</Title>
+      <Title level={2}>实时监控</Title>
 
       <Row gutter={16}>
         <Col xs={24} lg={8}>
-          <Card title="Running Executions" style={{ marginBottom: 16 }}>
+          <Card title="运行中的任务" style={{ marginBottom: 16 }}>
             <List
               dataSource={runningExecutions}
               renderItem={(item: Execution) => (
@@ -120,7 +128,7 @@ const Monitor: React.FC = () => {
                       <Space>
                         <Text code>{item.id.substring(0, 8)}</Text>
                         <Tag color={statusColors[item.status]}>
-                          {item.status.toUpperCase()}
+                          {statusLabels[item.status]}
                         </Tag>
                       </Space>
                     }
@@ -128,14 +136,14 @@ const Monitor: React.FC = () => {
                   />
                 </List.Item>
               )}
-              locale={{ emptyText: 'No running executions' }}
+              locale={{ emptyText: '暂无运行中的任务' }}
             />
           </Card>
 
-          <Card title="Quick Test">
+          <Card title="快速测试">
             <Space direction="vertical" style={{ width: '100%' }}>
               <Select
-                placeholder="Select Agent"
+                placeholder="选择智能体"
                 style={{ width: '100%' }}
                 onChange={setSelectedAgentId}
                 value={selectedAgentId}
@@ -150,7 +158,7 @@ const Monitor: React.FC = () => {
               </Select>
               <TextArea
                 rows={4}
-                placeholder="Enter test message..."
+                placeholder="输入测试消息..."
                 value={testInput}
                 onChange={(e) => setTestInput(e.target.value)}
               />
@@ -160,7 +168,7 @@ const Monitor: React.FC = () => {
                 onClick={handleTestAgent}
                 block
               >
-                Execute
+                执行
               </Button>
             </Space>
           </Card>
@@ -170,7 +178,7 @@ const Monitor: React.FC = () => {
           <Card
             title={
               <Space>
-                <span>Logs</span>
+                <span>执行日志</span>
                 {selectedExecutionId && (
                   <Text code>{selectedExecutionId.substring(0, 8)}</Text>
                 )}
@@ -178,7 +186,7 @@ const Monitor: React.FC = () => {
             }
             extra={
               <Button icon={<ClearOutlined />} onClick={handleClearLogs}>
-                Clear
+                清空
               </Button>
             }
           >
@@ -194,7 +202,7 @@ const Monitor: React.FC = () => {
             >
               {logs.length === 0 ? (
                 <Text style={{ color: '#666' }}>
-                  Select an execution to view logs...
+                  选择一个执行任务查看日志...
                 </Text>
               ) : (
                 logs.map((log, index) => (

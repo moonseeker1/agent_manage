@@ -15,17 +15,26 @@
 - 👥 **智能体群组** - 将多个智能体组合，支持顺序/并行执行
 - 📊 **执行监控** - 实时监控智能体执行状态和日志
 - 📈 **数据统计** - 执行次数、成功率、响应时间等指标
+- 🎯 **技能管理** - 定义和管理智能体可执行的技能
+- 🔑 **权限控制** - RBAC 角色权限管理系统
+- 📋 **审计日志** - 记录所有关键操作
 
 ### Agent 类型
 - **OpenAI** - 支持 GPT-4、GPT-3.5 等模型
 - **MCP Server** - Model Context Protocol 服务集成
 - **Custom** - 自定义 Webhook 或代码执行
 
+### MCP 集成
+- 📡 **MCP Server** - 系统本身可作为 MCP Server 供 Claude Code 调用
+- 🔗 **17+ MCP 工具** - 提供完整的智能体管理工具集
+- 🌐 **HTTP 通信** - 支持 HTTP 传输协议
+
 ### 高级功能
 - 📋 **预设模板** - 快速创建常用类型智能体
 - 📥 **配置导入/导出** - 一键备份和恢复配置
 - 🔄 **批量操作** - 批量启用/禁用/删除智能体
 - 🌐 **WebSocket 实时推送** - 执行状态实时更新
+- 🇨🇳 **完整中文化** - 所有界面已中文化
 
 ## 🛠️ 技术栈
 
@@ -224,11 +233,64 @@ server {
 | POST | `/api/config/agents/batch-delete` | 批量删除 |
 | POST | `/api/config/agents/batch-toggle` | 批量切换状态 |
 
+### 技能与权限管理 (RBAC)
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/rbac/skills` | 获取技能列表 |
+| POST | `/api/rbac/skills` | 创建技能 |
+| GET | `/api/rbac/permissions` | 获取权限列表 |
+| GET | `/api/rbac/roles` | 获取角色列表 |
+| POST | `/api/rbac/roles` | 创建角色 |
+| GET | `/api/rbac/agents/{id}/skills` | 获取智能体绑定的技能 |
+| POST | `/api/rbac/agents/{id}/skills/{skill_id}` | 绑定技能到智能体 |
+| GET | `/api/rbac/audit-logs` | 获取审计日志 |
+
 ### WebSocket
 | 路径 | 说明 |
 |------|------|
 | `/ws` | 全局状态推送 |
 | `/ws/executions/{id}` | 单个执行状态推送 |
+
+## 🔌 MCP 工具列表
+
+系统提供以下 MCP 工具供 Claude Code 调用：
+
+### 智能体管理
+| 工具 | 说明 |
+|------|------|
+| `agent_list` | 列出所有智能体 |
+| `agent_get` | 获取智能体详情 |
+| `agent_create` | 创建智能体 |
+| `agent_update` | 更新智能体 |
+| `agent_delete` | 删除智能体 |
+| `agent_toggle` | 启用/禁用智能体 |
+| `agent_execute` | 执行智能体 |
+
+### 执行管理
+| 工具 | 说明 |
+|------|------|
+| `execution_status` | 查看执行状态 |
+| `execution_logs` | 查看执行日志 |
+| `execution_list` | 列出执行记录 |
+| `execution_cancel` | 取消执行 |
+
+### 群组管理
+| 工具 | 说明 |
+|------|------|
+| `group_list` | 列出智能体群组 |
+| `group_create` | 创建智能体群组 |
+| `group_execute` | 执行群组 |
+
+### 技能与权限
+| 工具 | 说明 |
+|------|------|
+| `skill_list` | 列出所有技能 |
+| `skill_create` | 创建技能 |
+| `agent_skill_list` | 查看智能体绑定的技能 |
+| `agent_skill_bind` | 绑定技能到智能体 |
+| `permission_list` | 列出所有权限 |
+| `role_list` | 列出所有角色 |
+| `audit_logs` | 查看审计日志 |
 
 ## 📝 Agent 配置示例
 
