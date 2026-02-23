@@ -137,11 +137,13 @@ async def list_roles(
     current_user: User = Depends(get_current_user)
 ):
     """获取角色列表"""
+    from sqlalchemy.orm import selectinload
+
     # Count
     total = await db.scalar(select(func.count(Role.id)))
 
     # Query with permissions
-    query = select(Role).offset((page - 1) * page_size).limit(page_size)
+    query = select(Role).options(selectinload(Role.permissions)).offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(query)
     roles = result.scalars().all()
 
