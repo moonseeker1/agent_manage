@@ -256,3 +256,211 @@ async def get_agent_config(
         mcp_bindings=mcp_response,
         skill_bindings=skill_response
     )
+
+
+# ==================== Permission Check ====================
+@router.post("/{agent_id}/check-permission")
+async def check_agent_permission(
+    agent_id: str,
+    action: str = Query(..., description="操作类型: bash/read/write/edit/web"),
+    path: Optional[str] = Query(None, description="文件路径"),
+    command: Optional[str] = Query(None, description="命令"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """检查智能体是否有执行某操作的权限"""
+    agent = await db.get(Agent, UUID(agent_id))
+    if not agent:
+        raise HTTPException(404, "智能体不存在")
+
+    # Get permission
+    query = select(AgentPermission).where(AgentPermission.agent_id == UUID(agent_id))
+    result = await db.execute(query)
+    permission = result.scalar_one_or_none()
+
+    if not permission:
+        permission = AgentPermission(agent_id=UUID(agent_id))
+        db.add(permission)
+        await db.commit()
+        await db.refresh(permission)
+
+    # Check action permission
+    action_map = {
+        "bash": permission.allow_bash,
+        "read": permission.allow_read,
+        "write": permission.allow_write,
+        "edit": permission.allow_edit,
+        "web": permission.allow_web,
+    }
+
+    allowed = action_map.get(action, False)
+    reason = ""
+
+    if not allowed:
+        reason = f"Agent does not have '{action}' permission"
+    else:
+        # Check path restrictions
+        if path:
+            if permission.blocked_paths and any(path.startswith(p) for p in permission.blocked_paths):
+                allowed = False
+                reason = f"Path '{path}' is blocked"
+            elif permission.allowed_paths and permission.allowed_paths:
+                if not any(path.startswith(p) for p in permission.allowed_paths):
+                    allowed = False
+                    reason = f"Path '{path}' is not in allowed list"
+
+        # Check command restrictions
+        if action == "bash" and command:
+            if permission.blocked_commands and any(cmd in command for cmd in permission.blocked_commands):
+                allowed = False
+                reason = f"Command contains blocked pattern"
+            elif permission.allowed_commands and permission.allowed_commands:
+                cmd_name = command.split()[0] if command.split() else ""
+                if cmd_name not in permission.allowed_commands:
+                    allowed = False
+                    reason = f"Command '{cmd_name}' is not in allowed list"
+
+    return {"allowed": allowed, "reason": reason}
+
+
+# ==================== Activity Reporting ====================
+# In-memory activity log (for demo, should use database in production)
+_agent_activities = {}
+
+@router.post("/{agent_id}/activities")
+async def report_agent_activity(
+    agent_id: str,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """上报智能体活动状态"""
+    agent = await db.get(Agent, UUID(agent_id))
+    if not agent:
+        raise HTTPException(404, "智能体不存在")
+
+    # Store activity (in production, save to database)
+    if agent_id not in _agent_activities:
+        _agent_activities[agent_id] = []
+
+    activity = {
+        "action": data.get("action"),
+        "thought": data.get("thought", ""),
+        "status": data.get("status", "progress"),
+        "detail": data.get("detail", {}),
+        "timestamp": data.get("timestamp"),
+    }
+    _agent_activities[agent_id].append(activity)
+
+    # Keep only last 100 activities
+    if len(_agent_activities[agent_id]) > 100:
+        _agent_activities[agent_id] = _agent_activities[agent_id][-100:]
+
+    return {"success": True, "activity_logged": True}
+
+
+@router.get("/{agent_id}/activities")
+async def get_agent_activities(
+    agent_id: str,
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取智能体活动日志"""
+    agent = await db.get(Agent, UUID(agent_id))
+    if not agent:
+        raise HTTPException(404, "智能体不存在")
+
+    activities = _agent_activities.get(agent_id, [])
+    return {"activities": activities[-limit:]}
+
+
+# ==================== Pending Commands ====================
+# In-memory command queue (for demo, should use database in production)
+_agent_commands = {}
+
+@router.get("/{agent_id}/commands")
+async def get_agent_commands(
+    agent_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取待执行的指令"""
+    agent = await db.get(Agent, UUID(agent_id))
+    if not agent:
+        raise HTTPException(404, "智能体不存在")
+
+    commands = _agent_commands.get(agent_id, [])
+    # Clear commands after retrieval
+    _agent_commands[agent_id] = []
+
+    return {"commands": commands}
+
+
+@router.post("/{agent_id}/commands")
+async def send_agent_command(
+    agent_id: str,
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """向智能体发送指令（仅管理员）"""
+    agent = await db.get(Agent, UUID(agent_id))
+    if not agent:
+        raise HTTPException(404, "智能体不存在")
+
+    if agent_id not in _agent_commands:
+        _agent_commands[agent_id] = []
+
+    command = {
+        "type": data.get("type"),  # pause/cancel/task/config_reload
+        "content": data.get("content", {}),
+        "timestamp": data.get("timestamp"),
+    }
+    _agent_commands[agent_id].append(command)
+
+    return {"success": True, "command_queued": True}
+
+
+# ==================== Allowed Tools ====================
+@router.get("/{agent_id}/allowed-tools")
+async def get_agent_allowed_tools(
+    agent_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取智能体允许使用的工具列表"""
+    agent = await db.get(Agent, UUID(agent_id))
+    if not agent:
+        raise HTTPException(404, "智能体不存在")
+
+    # Get MCP bindings
+    mcp_result = await db.execute(
+        select(AgentMCPBinding).where(
+            AgentMCPBinding.agent_id == UUID(agent_id),
+            AgentMCPBinding.is_enabled == True
+        )
+    )
+    bindings = mcp_result.scalars().all()
+
+    tools = []
+    for binding in bindings:
+        server = await db.get(MCPServer, binding.mcp_server_id)
+        if server and server.enabled:
+            # Get tools from server cache or binding config
+            server_tools = server.tools_cache or []
+            enabled_tools = binding.enabled_tools or []
+
+            for tool in server_tools:
+                tool_name = tool.get("name", "")
+                # If enabled_tools is empty, all tools are allowed
+                if not enabled_tools or tool_name in enabled_tools:
+                    tools.append({
+                        "name": tool_name,
+                        "description": tool.get("description", ""),
+                        "server_id": str(server.id),
+                        "server_name": server.name,
+                        "server_code": server.code,
+                    })
+
+    return {"tools": tools, "total": len(tools)}

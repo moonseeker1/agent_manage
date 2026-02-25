@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """
 智能体管理系统 MCP Server
-用于 Claude Code 通过 MCP 协议管理智能体
+用于 Claude Code 通过 MCP 协议与管理系统交互
+
+核心功能:
+1. 自我配置 - Claude Code 获取自己的权限、技能、MCP绑定
+2. 权限检查 - 执行操作前检查是否被允许
+3. 活动上报 - 实时上报执行状态到管理系统
+4. 指令接收 - 从管理系统接收待执行的指令
 
 使用方法:
 1. 安装依赖: pip install mcp httpx
@@ -13,7 +19,8 @@
          "args": ["/path/to/agent_manager_mcp.py"],
          "env": {
            "AGENT_MANAGER_URL": "http://localhost:8000/api",
-           "AGENT_MANAGER_TOKEN": "your-jwt-token"
+           "AGENT_MANAGER_TOKEN": "your-jwt-token",
+           "AGENT_ID": "your-agent-id"
          }
        }
      }
@@ -34,6 +41,12 @@ from mcp.types import Tool, TextContent, Resource, ResourceTemplate
 # ============== 配置 ==============
 API_BASE = os.getenv("AGENT_MANAGER_URL", "http://localhost:8000/api")
 API_TOKEN = os.getenv("AGENT_MANAGER_TOKEN", "")
+AGENT_ID = os.getenv("AGENT_ID", "")  # 当前Agent的ID
+
+# ============== 缓存 ==============
+_config_cache = None
+_config_cache_time = None
+CACHE_TTL = 60  # 缓存60秒
 
 # ============== HTTP 客户端 ==============
 async def api_request(
@@ -78,16 +91,125 @@ app = Server("agent-manager")
 async def list_tools():
     """列出所有可用工具"""
     return [
+        # ========== 自我配置工具 (Claude Code 专用) ==========
+        Tool(
+            name="get_my_config",
+            description="""🔐 获取当前Agent的完整配置
+
+返回内容包括:
+- permission: 操作权限 (bash/文件/网络等)
+- skills: 绑定的技能列表
+- mcp_bindings: 绑定的MCP服务器
+- allowed_tools: 允许使用的工具列表
+- restrictions: 路径和命令限制
+
+建议在开始任务前调用此工具了解自己的能力边界。""",
+            inputSchema={"type": "object", "properties": {}}
+        ),
+        Tool(
+            name="check_permission",
+            description="""🔍 检查是否有执行某操作的权限
+
+用于在执行敏感操作前进行权限检查:
+- action: bash/read/write/edit/web
+- path: 文件路径 (可选)
+- command: 要执行的命令 (可选)
+
+返回: {"allowed": true/false, "reason": "原因"}""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "description": "操作类型: bash/read/write/edit/web",
+                        "enum": ["bash", "read", "write", "edit", "web"]
+                    },
+                    "path": {"type": "string", "description": "文件路径（文件操作时必填）"},
+                    "command": {"type": "string", "description": "要执行的命令（bash操作时必填）"}
+                },
+                "required": ["action"]
+            }
+        ),
+        Tool(
+            name="report_activity",
+            description="""📡 上报当前活动状态到管理系统
+
+用于实时监控和审计:
+- action: 当前操作名称
+- thought: 操作原因/思考过程
+- status: progress/success/failed
+- detail: 详细信息 (可选)
+
+建议在执行重要操作前后调用此工具。""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "description": "操作名称 (如: reading_file, running_test)"},
+                    "thought": {"type": "string", "description": "为什么要执行此操作"},
+                    "status": {
+                        "type": "string",
+                        "description": "状态",
+                        "enum": ["progress", "success", "failed"],
+                        "default": "progress"
+                    },
+                    "detail": {"type": "object", "description": "详细信息"}
+                },
+                "required": ["action"]
+            }
+        ),
+        Tool(
+            name="check_commands",
+            description="""📥 检查来自管理系统的待执行指令
+
+返回一个指令队列，可能包含:
+- 暂停指令: 要求暂停当前工作
+- 取消指令: 要求取消当前任务
+- 新任务: 管理员下发的新任务
+- 配置更新: 要求重新加载配置
+
+建议定期调用此工具检查是否有新指令。""",
+            inputSchema={"type": "object", "properties": {}}
+        ),
+        Tool(
+            name="get_allowed_tools",
+            description="""🛠️ 获取允许使用的MCP工具列表
+
+返回当前Agent被允许使用的所有MCP工具:
+- 工具名称
+- 所属MCP服务器
+- 工具描述
+- 使用限制
+
+在调用其他MCP工具前，建议先检查是否在允许列表中。""",
+            inputSchema={"type": "object", "properties": {}}
+        ),
+        Tool(
+            name="get_skill_config",
+            description="""🎯 获取指定技能的详细配置
+
+根据技能代码获取:
+- 技能描述和使用说明
+- 具体配置参数
+- 相关权限要求""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "skill_code": {"type": "string", "description": "技能代码 (如: code_generation, file_operations)"}
+                },
+                "required": ["skill_code"]
+            }
+        ),
+
         # ========== 智能体管理 ==========
         Tool(
             name="agent_list",
-            description="📋 列出所有智能体（龙虾池）",
+            description="📋 列出所有智能体",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "page": {"type": "integer", "description": "页码", "default": 1},
                     "page_size": {"type": "integer", "description": "每页数量", "default": 20},
-                    "agent_type": {"type": "string", "description": "类型筛选: openai/anthropic/mcp/custom"},
+                    "agent_type": {"type": "string", "description": "类型筛选"},
                     "enabled": {"type": "boolean", "description": "状态筛选"}
                 }
             }
@@ -105,14 +227,14 @@ async def list_tools():
         ),
         Tool(
             name="agent_create",
-            description="🦞 创建新的智能体（养一只新龙虾）",
+            description="🦞 创建新的智能体",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "智能体名称"},
                     "description": {"type": "string", "description": "描述"},
-                    "agent_type": {"type": "string", "description": "类型: openai/anthropic/mcp/custom"},
-                    "config": {"type": "object", "description": "配置（JSON）"}
+                    "agent_type": {"type": "string", "description": "类型"},
+                    "config": {"type": "object", "description": "配置"}
                 },
                 "required": ["name", "agent_type", "config"]
             }
@@ -133,7 +255,7 @@ async def list_tools():
         ),
         Tool(
             name="agent_delete",
-            description="🗑️ 删除智能体（放生龙虾）",
+            description="🗑️ 删除智能体",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -142,28 +264,16 @@ async def list_tools():
                 "required": ["agent_id"]
             }
         ),
-        Tool(
-            name="agent_toggle",
-            description="🔄 启用/禁用智能体",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "agent_id": {"type": "string", "description": "智能体ID"},
-                    "enabled": {"type": "boolean", "description": "true=启用, false=禁用"}
-                },
-                "required": ["agent_id", "enabled"]
-            }
-        ),
 
-        # ========== 智能体执行 ==========
+        # ========== 执行管理 ==========
         Tool(
             name="agent_execute",
-            description="🚀 执行智能体（派龙虾干活）",
+            description="🚀 执行智能体",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "agent_id": {"type": "string", "description": "智能体ID"},
-                    "message": {"type": "string", "description": "输入消息/任务"},
+                    "message": {"type": "string", "description": "输入消息"},
                     "context": {"type": "object", "description": "额外上下文"}
                 },
                 "required": ["agent_id", "message"]
@@ -181,17 +291,6 @@ async def list_tools():
             }
         ),
         Tool(
-            name="execution_logs",
-            description="📝 查看执行日志",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "execution_id": {"type": "string", "description": "执行ID"}
-                },
-                "required": ["execution_id"]
-            }
-        ),
-        Tool(
             name="execution_list",
             description="📜 列出执行记录",
             inputSchema={
@@ -199,27 +298,15 @@ async def list_tools():
                 "properties": {
                     "page": {"type": "integer", "default": 1},
                     "page_size": {"type": "integer", "default": 20},
-                    "agent_id": {"type": "string", "description": "按智能体筛选"},
-                    "status": {"type": "string", "description": "按状态筛选: pending/running/completed/failed"}
+                    "status": {"type": "string", "description": "状态筛选"}
                 }
-            }
-        ),
-        Tool(
-            name="execution_cancel",
-            description="❌ 取消执行",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "execution_id": {"type": "string", "description": "执行ID"}
-                },
-                "required": ["execution_id"]
             }
         ),
 
         # ========== 群组管理 ==========
         Tool(
             name="group_list",
-            description="👥 列出智能体群组（龙虾群）",
+            description="👥 列出智能体群组",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -230,47 +317,85 @@ async def list_tools():
         ),
         Tool(
             name="group_create",
-            description="🦐 创建智能体群组（组建龙虾群）",
+            description="🦐 创建智能体群组",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "name": {"type": "string", "description": "群组名称"},
                     "description": {"type": "string", "description": "描述"},
-                    "execution_mode": {"type": "string", "description": "执行模式: sequential/parallel"},
-                    "agent_ids": {"type": "array", "items": {"type": "string"}, "description": "成员Agent ID列表"}
+                    "agent_ids": {"type": "array", "items": {"type": "string"}, "description": "成员ID列表"}
                 },
                 "required": ["name", "agent_ids"]
             }
         ),
         Tool(
             name="group_execute",
-            description="🚀 执行群组（派遣龙虾群）",
+            description="🚀 执行群组",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "group_id": {"type": "string", "description": "群组ID"},
-                    "message": {"type": "string", "description": "输入消息/任务"}
+                    "message": {"type": "string", "description": "输入消息"}
                 },
                 "required": ["group_id", "message"]
             }
         ),
 
-        # ========== 配置管理 ==========
+        # ========== MCP服务器管理 ==========
         Tool(
-            name="config_export",
-            description="💾 导出所有配置",
+            name="mcp_server_list",
+            description="🔌 列出MCP服务器",
             inputSchema={"type": "object", "properties": {}}
         ),
         Tool(
-            name="config_import",
-            description="📥 导入配置",
+            name="mcp_server_tools",
+            description="🔧 获取MCP服务器的工具列表",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "config": {"type": "object", "description": "配置JSON"}
+                    "server_id": {"type": "string", "description": "服务器ID"}
                 },
-                "required": ["config"]
+                "required": ["server_id"]
             }
+        ),
+
+        # ========== 技能管理 ==========
+        Tool(
+            name="skill_list",
+            description="🎯 列出所有技能",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "category": {"type": "string", "description": "按分类筛选"}
+                }
+            }
+        ),
+        Tool(
+            name="skill_create",
+            description="➕ 创建技能",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "技能名称"},
+                    "code": {"type": "string", "description": "技能代码"},
+                    "description": {"type": "string", "description": "描述"},
+                    "category": {"type": "string", "description": "分类"},
+                    "config": {"type": "object", "description": "配置"}
+                },
+                "required": ["name", "code"]
+            }
+        ),
+
+        # ========== 权限管理 ==========
+        Tool(
+            name="permission_list",
+            description="🔑 列出所有权限",
+            inputSchema={"type": "object", "properties": {}}
+        ),
+        Tool(
+            name="role_list",
+            description="👥 列出所有角色",
+            inputSchema={"type": "object", "properties": {}}
         ),
 
         # ========== 监控统计 ==========
@@ -284,208 +409,98 @@ async def list_tools():
                 }
             }
         ),
-        Tool(
-            name="agent_metrics",
-            description="📊 获取智能体指标",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "agent_id": {"type": "string", "description": "智能体ID"}
-                },
-                "required": ["agent_id"]
-            }
-        ),
-
-        # ========== 技能管理 ==========
-        Tool(
-            name="skill_list",
-            description="🎯 列出所有技能",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "page": {"type": "integer", "default": 1},
-                    "page_size": {"type": "integer", "default": 20},
-                    "category": {"type": "string", "description": "按分类筛选"}
-                }
-            }
-        ),
-        Tool(
-            name="skill_create",
-            description="➕ 创建技能",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "技能名称"},
-                    "code": {"type": "string", "description": "技能代码（唯一标识）"},
-                    "description": {"type": "string", "description": "描述"},
-                    "category": {"type": "string", "description": "分类"},
-                    "config": {"type": "object", "description": "配置"}
-                },
-                "required": ["name", "code"]
-            }
-        ),
-        Tool(
-            name="skill_delete",
-            description="🗑️ 删除技能",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "skill_id": {"type": "string", "description": "技能ID"}
-                },
-                "required": ["skill_id"]
-            }
-        ),
-
-        # ========== 智能体技能绑定 ==========
-        Tool(
-            name="agent_skill_list",
-            description="📋 查看智能体绑定的技能",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "agent_id": {"type": "string", "description": "智能体ID"}
-                },
-                "required": ["agent_id"]
-            }
-        ),
-        Tool(
-            name="agent_skill_bind",
-            description="🔗 给智能体绑定技能",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "agent_id": {"type": "string", "description": "智能体ID"},
-                    "skill_id": {"type": "string", "description": "技能ID"},
-                    "priority": {"type": "integer", "description": "优先级（数字越小越高）", "default": 100},
-                    "config": {"type": "object", "description": "绑定配置"}
-                },
-                "required": ["agent_id", "skill_id"]
-            }
-        ),
-        Tool(
-            name="agent_skill_unbind",
-            description="✂️ 解除智能体技能绑定",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "agent_id": {"type": "string", "description": "智能体ID"},
-                    "skill_id": {"type": "string", "description": "技能ID"}
-                },
-                "required": ["agent_id", "skill_id"]
-            }
-        ),
-
-        # ========== 权限管理 ==========
-        Tool(
-            name="permission_list",
-            description="🔑 列出所有权限",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "resource": {"type": "string", "description": "按资源类型筛选"}
-                }
-            }
-        ),
-        Tool(
-            name="role_list",
-            description="👥 列出所有角色",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "page": {"type": "integer", "default": 1},
-                    "page_size": {"type": "integer", "default": 20}
-                }
-            }
-        ),
-        Tool(
-            name="role_create",
-            description="➕ 创建角色",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string", "description": "角色名称"},
-                    "code": {"type": "string", "description": "角色代码"},
-                    "description": {"type": "string", "description": "描述"},
-                    "permission_ids": {"type": "array", "items": {"type": "string"}, "description": "权限ID列表"}
-                },
-                "required": ["name", "code"]
-            }
-        ),
-        Tool(
-            name="role_assign",
-            description="👤 给用户分配角色",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "role_id": {"type": "string", "description": "角色ID"},
-                    "user_id": {"type": "string", "description": "用户ID"}
-                },
-                "required": ["role_id", "user_id"]
-            }
-        ),
-
-        # ========== 审计日志 ==========
-        Tool(
-            name="audit_logs",
-            description="📋 查看审计日志",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "page": {"type": "integer", "default": 1},
-                    "page_size": {"type": "integer", "default": 20},
-                    "action": {"type": "string", "description": "按操作类型筛选"},
-                    "resource_type": {"type": "string", "description": "按资源类型筛选"}
-                }
-            }
-        ),
-
-        # ========== 我的权限 ==========
-        Tool(
-            name="my_permissions",
-            description="🔐 查看我的权限和技能",
-            inputSchema={"type": "object", "properties": {}}
-        )
     ]
 
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict):
     """执行工具调用"""
+    global _config_cache, _config_cache_time
+
     result = None
 
     try:
+        # ========== 自我配置工具 ==========
+        if name == "get_my_config":
+            if not AGENT_ID:
+                result = {"error": "AGENT_ID 未配置，无法获取配置"}
+            else:
+                # 检查缓存
+                now = datetime.now()
+                if _config_cache and _config_cache_time:
+                    if (now - _config_cache_time).total_seconds() < CACHE_TTL:
+                        result = _config_cache
+                    else:
+                        _config_cache = None
+
+                if not _config_cache:
+                    result = await api_request("GET", f"/agents/{AGENT_ID}/config")
+                    _config_cache = result
+                    _config_cache_time = now
+
+        elif name == "check_permission":
+            if not AGENT_ID:
+                result = {"allowed": False, "reason": "AGENT_ID 未配置"}
+            else:
+                result = await api_request("POST", f"/agents/{AGENT_ID}/check-permission", data=arguments)
+
+        elif name == "report_activity":
+            if not AGENT_ID:
+                result = {"error": "AGENT_ID 未配置"}
+            else:
+                result = await api_request("POST", f"/agents/{AGENT_ID}/activities", data={
+                    "action": arguments.get("action"),
+                    "thought": arguments.get("thought", ""),
+                    "status": arguments.get("status", "progress"),
+                    "detail": arguments.get("detail", {}),
+                    "timestamp": datetime.now().isoformat()
+                })
+
+        elif name == "check_commands":
+            if not AGENT_ID:
+                result = {"commands": [], "error": "AGENT_ID 未配置"}
+            else:
+                result = await api_request("GET", f"/agents/{AGENT_ID}/commands")
+
+        elif name == "get_allowed_tools":
+            if not AGENT_ID:
+                result = {"tools": [], "error": "AGENT_ID 未配置"}
+            else:
+                result = await api_request("GET", f"/agents/{AGENT_ID}/allowed-tools")
+
+        elif name == "get_skill_config":
+            skill_code = arguments.get("skill_code")
+            if not skill_code:
+                result = {"error": "skill_code 必填"}
+            else:
+                # 先获取我的配置，然后找对应技能
+                config = await api_request("GET", f"/agents/{AGENT_ID}/config") if AGENT_ID else {}
+                skills = config.get("skill_bindings", [])
+                for skill in skills:
+                    if skill.get("skill_code") == skill_code or skill.get("code") == skill_code:
+                        result = skill
+                        break
+                else:
+                    result = {"error": f"未找到技能: {skill_code}"}
+
         # ========== 智能体管理 ==========
-        if name == "agent_list":
-            result = await api_request("GET", "/agents", params={
-                "page": arguments.get("page", 1),
-                "page_size": arguments.get("page_size", 20),
-                "agent_type": arguments.get("agent_type"),
-                "enabled": arguments.get("enabled")
-            })
+        elif name == "agent_list":
+            result = await api_request("GET", "/agents", params=arguments)
 
         elif name == "agent_get":
             result = await api_request("GET", f"/agents/{arguments['agent_id']}")
 
         elif name == "agent_create":
-            result = await api_request("POST", "/agents", data={
-                "name": arguments["name"],
-                "description": arguments.get("description", ""),
-                "agent_type": arguments["agent_type"],
-                "config": arguments["config"]
-            })
+            result = await api_request("POST", "/agents", data=arguments)
 
         elif name == "agent_update":
-            data = {"agent_id": arguments.pop("agent_id")}
-            result = await api_request("PUT", f"/agents/{data['agent_id']}", data=arguments)
+            agent_id = arguments.pop("agent_id")
+            result = await api_request("PUT", f"/agents/{agent_id}", data=arguments)
 
         elif name == "agent_delete":
             result = await api_request("DELETE", f"/agents/{arguments['agent_id']}")
 
-        elif name == "agent_toggle":
-            action = "enable" if arguments["enabled"] else "disable"
-            result = await api_request("POST", f"/agents/{arguments['agent_id']}/{action}")
-
-        # ========== 智能体执行 ==========
+        # ========== 执行管理 ==========
         elif name == "agent_execute":
             result = await api_request(
                 "POST",
@@ -496,14 +511,8 @@ async def call_tool(name: str, arguments: dict):
         elif name == "execution_status":
             result = await api_request("GET", f"/executions/{arguments['execution_id']}")
 
-        elif name == "execution_logs":
-            result = await api_request("GET", f"/executions/{arguments['execution_id']}/logs")
-
         elif name == "execution_list":
             result = await api_request("GET", "/executions", params=arguments)
-
-        elif name == "execution_cancel":
-            result = await api_request("POST", f"/executions/{arguments['execution_id']}/cancel")
 
         # ========== 群组管理 ==========
         elif name == "group_list":
@@ -519,19 +528,12 @@ async def call_tool(name: str, arguments: dict):
                 data={"input_data": {"message": arguments["message"]}}
             )
 
-        # ========== 配置管理 ==========
-        elif name == "config_export":
-            result = await api_request("GET", "/config/export")
+        # ========== MCP服务器管理 ==========
+        elif name == "mcp_server_list":
+            result = await api_request("GET", "/mcp/servers")
 
-        elif name == "config_import":
-            result = await api_request("POST", "/config/import", data=arguments["config"])
-
-        # ========== 监控统计 ==========
-        elif name == "metrics_summary":
-            result = await api_request("GET", "/metrics/executions", params=arguments)
-
-        elif name == "agent_metrics":
-            result = await api_request("GET", f"/metrics/agents/{arguments['agent_id']}")
+        elif name == "mcp_server_tools":
+            result = await api_request("GET", f"/mcp/servers/{arguments['server_id']}/tools")
 
         # ========== 技能管理 ==========
         elif name == "skill_list":
@@ -540,51 +542,16 @@ async def call_tool(name: str, arguments: dict):
         elif name == "skill_create":
             result = await api_request("POST", "/rbac/skills", data=arguments)
 
-        elif name == "skill_delete":
-            result = await api_request("DELETE", f"/rbac/skills/{arguments['skill_id']}")
-
-        # ========== 智能体技能绑定 ==========
-        elif name == "agent_skill_list":
-            result = await api_request("GET", f"/rbac/agents/{arguments['agent_id']}/skills")
-
-        elif name == "agent_skill_bind":
-            agent_id = arguments.pop("agent_id")
-            skill_id = arguments.pop("skill_id")
-            result = await api_request(
-                "POST",
-                f"/rbac/agents/{agent_id}/skills/{skill_id}",
-                data=arguments
-            )
-
-        elif name == "agent_skill_unbind":
-            result = await api_request(
-                "DELETE",
-                f"/rbac/agents/{arguments['agent_id']}/skills/{arguments['skill_id']}"
-            )
-
         # ========== 权限管理 ==========
         elif name == "permission_list":
-            result = await api_request("GET", "/rbac/permissions", params=arguments)
+            result = await api_request("GET", "/rbac/permissions")
 
         elif name == "role_list":
-            result = await api_request("GET", "/rbac/roles", params=arguments)
+            result = await api_request("GET", "/rbac/roles")
 
-        elif name == "role_create":
-            result = await api_request("POST", "/rbac/roles", data=arguments)
-
-        elif name == "role_assign":
-            result = await api_request(
-                "POST",
-                f"/rbac/roles/{arguments['role_id']}/users/{arguments['user_id']}"
-            )
-
-        # ========== 审计日志 ==========
-        elif name == "audit_logs":
-            result = await api_request("GET", "/rbac/audit-logs", params=arguments)
-
-        # ========== 我的权限 ==========
-        elif name == "my_permissions":
-            result = await api_request("GET", "/rbac/users/me/permissions")
+        # ========== 监控统计 ==========
+        elif name == "metrics_summary":
+            result = await api_request("GET", "/metrics/executions", params=arguments)
 
         else:
             result = {"error": f"Unknown tool: {name}"}
