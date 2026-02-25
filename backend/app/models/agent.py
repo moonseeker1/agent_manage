@@ -29,6 +29,9 @@ class Agent(Base):
     group_memberships = relationship("AgentGroupMember", back_populates="agent", cascade="all, delete-orphan")
     executions = relationship("Execution", back_populates="agent")
     metrics = relationship("Metric", back_populates="agent")
+    agent_permission = relationship("AgentPermission", back_populates="agent", uselist=False, cascade="all, delete-orphan")
+    mcp_bindings = relationship("AgentMCPBinding", back_populates="agent", cascade="all, delete-orphan")
+    skill_bindings = relationship("AgentSkillBinding", back_populates="agent", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Agent {self.name} ({self.agent_type})>"

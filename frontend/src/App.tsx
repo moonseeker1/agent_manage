@@ -9,6 +9,9 @@ import { GroupsList } from '@/pages/Groups';
 import { ExecutionsList } from '@/pages/Executions';
 import Monitor from '@/pages/Monitor';
 import Login from '@/pages/Login';
+import SkillsList from '@/pages/Skills/List';
+import PermissionsPage from '@/pages/Permissions/List';
+import MCPServersPage from '@/pages/MCP/List';
 import { useAuthStore } from '@/stores/authStore';
 
 // Protected Route component
@@ -45,6 +48,9 @@ const App: React.FC = () => {
                     <Route path="/groups" element={<GroupsList />} />
                     <Route path="/executions" element={<ExecutionsList />} />
                     <Route path="/monitor" element={<Monitor />} />
+                    <Route path="/skills" element={<SkillsList />} />
+                    <Route path="/permissions" element={<PermissionsPage />} />
+                    <Route path="/mcp" element={<MCPServersPage />} />
                   </Routes>
                 </MainLayout>
               </ProtectedRoute>

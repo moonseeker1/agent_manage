@@ -112,3 +112,109 @@ export interface PaginatedResponse<T> {
   page: number;
   page_size: number;
 }
+
+// Permission types
+export interface Permission {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  resource: string;
+  action: string;
+  created_at: string;
+}
+
+export interface PermissionCreate {
+  name: string;
+  code: string;
+  description?: string;
+  resource: string;
+  action: string;
+}
+
+export interface PermissionUpdate {
+  name?: string;
+  description?: string;
+  resource?: string;
+  action?: string;
+}
+
+// Role types
+export interface Role {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  is_system: boolean;
+  is_active: boolean;
+  permissions: Permission[];
+  created_at: string;
+}
+
+export interface RoleCreate {
+  name: string;
+  code: string;
+  description?: string;
+  is_active?: boolean;
+  permission_ids?: string[];
+}
+
+export interface RoleUpdate {
+  name?: string;
+  description?: string;
+  is_active?: boolean;
+  permission_ids?: string[];
+}
+
+// Skill types
+export interface Skill {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  category?: string;
+  config?: Record<string, any>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SkillCreate {
+  name: string;
+  code: string;
+  description?: string;
+  category?: string;
+  config?: Record<string, any>;
+  is_active?: boolean;
+  permission_ids?: string[];
+}
+
+export interface SkillUpdate {
+  name?: string;
+  description?: string;
+  category?: string;
+  config?: Record<string, any>;
+  is_active?: boolean;
+  permission_ids?: string[];
+}
+
+export interface AgentSkillBinding {
+  id: string;
+  agent_id: string;
+  skill_id: string;
+  skill_name: string;
+  skill_code: string;
+  config: Record<string, any>;
+  priority: number;
+  is_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentSkillBindingCreate {
+  agent_id: string;
+  skill_id: string;
+  config?: Record<string, any>;
+  priority?: number;
+  is_enabled?: boolean;
+}

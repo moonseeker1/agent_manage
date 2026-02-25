@@ -117,6 +117,10 @@ class AgentSkillBinding(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Relationships
+    agent = relationship("Agent", back_populates="skill_bindings")
+    skill = relationship("Skill")
+
     def __repr__(self):
         return f"<AgentSkillBinding agent={self.agent_id} skill={self.skill_id}>"
 

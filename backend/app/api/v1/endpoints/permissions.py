@@ -112,6 +112,27 @@ async def create_permission(
     return permission
 
 
+@router.put("/permissions/{permission_id}", response_model=PermissionResponse)
+async def update_permission(
+    permission_id: str,
+    data: PermissionUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_superuser)
+):
+    """更新权限（仅管理员）"""
+    permission = await db.get(Permission, UUID(permission_id))
+    if not permission:
+        raise HTTPException(404, "权限不存在")
+
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(permission, key, value)
+
+    await db.commit()
+    await db.refresh(permission)
+    return permission
+
+
 @router.delete("/permissions/{permission_id}", status_code=204)
 async def delete_permission(
     permission_id: str,

@@ -248,4 +248,163 @@ export const configApi = {
   },
 };
 
+// Skills API
+export const skillsApi = {
+  list: async (params?: { page?: number; page_size?: number; category?: string }) => {
+    const response = await api.get<PaginatedResponse<any>>('/rbac/skills', { params });
+    return response.data;
+  },
+
+  get: async (id: string) => {
+    const response = await api.get(`/rbac/skills/${id}`);
+    return response.data;
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/rbac/skills', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/rbac/skills/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    await api.delete(`/rbac/skills/${id}`);
+  },
+
+  getAgentSkills: async (agentId: string) => {
+    const response = await api.get(`/rbac/agents/${agentId}/skills`);
+    return response.data;
+  },
+
+  bindToAgent: async (agentId: string, skillId: string, data: any) => {
+    const response = await api.post(`/rbac/agents/${agentId}/skills/${skillId}`, data);
+    return response.data;
+  },
+
+  unbindFromAgent: async (agentId: string, skillId: string) => {
+    await api.delete(`/rbac/agents/${agentId}/skills/${skillId}`);
+  },
+};
+
+// Permissions API
+export const permissionsApi = {
+  list: async (resource?: string) => {
+    const response = await api.get<any[]>('/rbac/permissions', {
+      params: resource ? { resource } : undefined,
+    });
+    return response.data;
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/rbac/permissions', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/rbac/permissions/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    await api.delete(`/rbac/permissions/${id}`);
+  },
+};
+
+// Roles API
+export const rolesApi = {
+  list: async (params?: { page?: number; page_size?: number }) => {
+    const response = await api.get<PaginatedResponse<any>>('/rbac/roles', { params });
+    return response.data;
+  },
+
+  get: async (id: string) => {
+    const response = await api.get(`/rbac/roles/${id}`);
+    return response.data;
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/rbac/roles', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/rbac/roles/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    await api.delete(`/rbac/roles/${id}`);
+  },
+
+  assignToUser: async (roleId: string, userId: string) => {
+    const response = await api.post(`/rbac/roles/${roleId}/users/${userId}`);
+    return response.data;
+  },
+
+  removeFromUser: async (roleId: string, userId: string) => {
+    const response = await api.delete(`/rbac/roles/${roleId}/users/${userId}`);
+    return response.data;
+  },
+};
+
+// Audit Logs API
+export const auditLogsApi = {
+  list: async (params?: { page?: number; page_size?: number; action?: string; resource_type?: string }) => {
+    const response = await api.get<any[]>('/rbac/audit-logs', { params });
+    return response.data;
+  },
+};
+
+// MCP Servers API
+export const mcpServersApi = {
+  list: async (params?: { page?: number; page_size?: number; enabled?: boolean }) => {
+    const response = await api.get<PaginatedResponse<any>>('/mcp/servers', { params });
+    return response.data;
+  },
+
+  get: async (id: string) => {
+    const response = await api.get(`/mcp/servers/${id}`);
+    return response.data;
+  },
+
+  create: async (data: any) => {
+    const response = await api.post('/mcp/servers', data);
+    return response.data;
+  },
+
+  update: async (id: string, data: any) => {
+    const response = await api.put(`/mcp/servers/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    await api.delete(`/mcp/servers/${id}`);
+  },
+
+  sync: async (id: string) => {
+    const response = await api.post(`/mcp/servers/${id}/sync`);
+    return response.data;
+  },
+
+  getTools: async (serverId: string) => {
+    const response = await api.get(`/mcp/servers/${serverId}/tools`);
+    return response.data;
+  },
+
+  toggleTool: async (toolId: string, enabled: boolean) => {
+    const response = await api.put(`/mcp/tools/${toolId}/toggle`, null, {
+      params: { enabled }
+    });
+    return response.data;
+  },
+
+  getTypes: async () => {
+    const response = await api.get('/mcp/types');
+    return response.data;
+  },
+};
+
 export default api;

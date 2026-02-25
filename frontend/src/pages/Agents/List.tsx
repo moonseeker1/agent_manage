@@ -19,9 +19,11 @@ import {
   EditOutlined,
   DeleteOutlined,
   PlayCircleOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useAgentStore } from '@/stores';
 import type { Agent, AgentType } from '@/types';
+import AgentConfig from './AgentConfig';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -56,6 +58,8 @@ const AgentsList: React.FC = () => {
   const [executeModalOpen, setExecuteModalOpen] = useState(false);
   const [executingAgent, setExecutingAgent] = useState<Agent | null>(null);
   const [executeForm] = Form.useForm();
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [configuringAgent, setConfiguringAgent] = useState<Agent | null>(null);
 
   useEffect(() => {
     fetchAgents({ page_size: 100 });
@@ -135,6 +139,11 @@ const AgentsList: React.FC = () => {
     setExecuteModalOpen(true);
   };
 
+  const handleConfig = (agent: Agent) => {
+    setConfiguringAgent(agent);
+    setConfigModalOpen(true);
+  };
+
   const handleExecuteSubmit = async () => {
     try {
       const values = await executeForm.validateFields();
@@ -201,6 +210,14 @@ const AgentsList: React.FC = () => {
             disabled={!record.enabled}
           >
             执行
+          </Button>
+          <Button
+            icon={<SettingOutlined />}
+            size="small"
+            onClick={() => handleConfig(record)}
+            title="配置权限、技能和MCP"
+          >
+            配置
           </Button>
           <Button
             icon={<EditOutlined />}
@@ -304,6 +321,16 @@ const AgentsList: React.FC = () => {
             />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={`配置智能体: ${configuringAgent?.name}`}
+        open={configModalOpen}
+        onCancel={() => setConfigModalOpen(false)}
+        footer={null}
+        width={900}
+      >
+        {configuringAgent && <AgentConfig agentId={configuringAgent.id} />}
       </Modal>
     </div>
   );

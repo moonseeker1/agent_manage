@@ -10,6 +10,9 @@ import {
   LogoutOutlined,
   DownloadOutlined,
   UploadOutlined,
+  ThunderboltOutlined,
+  SafetyOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
@@ -36,6 +39,21 @@ const menuItems = [
     key: '/groups',
     icon: <TeamOutlined />,
     label: '智能体群组',
+  },
+  {
+    key: '/skills',
+    icon: <ThunderboltOutlined />,
+    label: '技能管理',
+  },
+  {
+    key: '/permissions',
+    icon: <SafetyOutlined />,
+    label: '权限管理',
+  },
+  {
+    key: '/mcp',
+    icon: <ApiOutlined />,
+    label: 'MCP服务器',
   },
   {
     key: '/executions',
