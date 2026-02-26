@@ -68,7 +68,7 @@ async def api_request(
             if method == "GET":
                 response = await client.get(url, headers=headers, params=params)
             elif method == "POST":
-                response = await client.post(url, headers=headers, json=data)
+                response = await client.post(url, headers=headers, json=data, params=params)
             elif method == "PUT":
                 response = await client.put(url, headers=headers, json=data)
             elif method == "DELETE":
@@ -534,7 +534,8 @@ async def call_tool(name: str, arguments: dict):
             if not AGENT_ID:
                 result = {"allowed": False, "reason": "AGENT_ID 未配置"}
             else:
-                result = await api_request("POST", f"/agents/{AGENT_ID}/check-permission", data=arguments)
+                # check-permission uses Query parameters, not JSON body
+                result = await api_request("POST", f"/agents/{AGENT_ID}/check-permission", params=arguments)
 
         elif name == "report_activity":
             if not AGENT_ID:
