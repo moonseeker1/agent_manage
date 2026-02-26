@@ -1,6 +1,8 @@
 """Agent configuration management API endpoints"""
+import time
+from datetime import datetime
 from typing import List, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -9,11 +11,13 @@ from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.deps import get_current_user, get_current_superuser
+from app.core.redis import redis_service
 from app.models.user import User
 from app.models.agent import Agent
 from app.models.mcp_server import MCPServer
 from app.models.agent_config import AgentPermission, AgentMCPBinding
 from app.models.permission import AgentSkillBinding
+from app.models.command import AgentCommand, CommandStatus
 from app.schemas.agent_config import (
     AgentPermissionCreate,
     AgentPermissionUpdate,
@@ -23,6 +27,8 @@ from app.schemas.agent_config import (
     AgentMCPBindingResponse,
     AgentConfigResponse,
 )
+from api.websocket import manager as ws_manager
+from loguru import logger
 
 router = APIRouter(prefix="/agents", tags=["Agent Configuration"])
 
@@ -375,26 +381,62 @@ async def get_agent_activities(
     return {"activities": activities[-limit:]}
 
 
-# ==================== Pending Commands ====================
-# In-memory command queue (for demo, should use database in production)
-_agent_commands = {}
+# ==================== Pending Commands (Redis-based) ====================
 
 @router.get("/{agent_id}/commands")
 async def get_agent_commands(
     agent_id: str,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    limit: int = Query(10, ge=1, le=50, description="获取数量"),
+    db: AsyncSession = Depends(get_db)
 ):
-    """获取待执行的指令"""
+    """
+    获取待执行的指令
+
+    从 Redis 优先级队列获取指令。无需认证，由 MCP 工具调用。
+    """
     agent = await db.get(Agent, UUID(agent_id))
     if not agent:
         raise HTTPException(404, "智能体不存在")
 
-    commands = _agent_commands.get(agent_id, [])
-    # Clear commands after retrieval
-    _agent_commands[agent_id] = []
+    commands = []
+    now = datetime.utcnow()
 
-    return {"commands": commands}
+    # 从 Redis 队列获取指定数量的指令
+    for _ in range(limit):
+        command_data = await redis_service.pop_command(agent_id)
+        if not command_data:
+            break
+
+        command_id = command_data.get("id")
+
+        # 更新数据库中的指令状态
+        db_command = await db.execute(
+            select(AgentCommand).where(AgentCommand.id == UUID(command_id))
+        )
+        db_cmd = db_command.scalar_one_or_none()
+        if db_cmd:
+            db_cmd.status = CommandStatus.EXECUTING.value
+            db_cmd.started_at = now
+            db_cmd.updated_at = now
+            await db.commit()
+
+        # 添加超时监控
+        timeout = command_data.get("timeout", 300)
+        await redis_service.add_command_timeout(command_id, agent_id, timeout)
+
+        commands.append(command_data)
+
+    # WebSocket 推送
+    if commands:
+        await ws_manager.broadcast({
+            "type": "commands_fetched",
+            "data": {
+                "agent_id": agent_id,
+                "count": len(commands)
+            }
+        })
+
+    return {"commands": commands, "count": len(commands)}
 
 
 @router.post("/{agent_id}/commands")
@@ -404,22 +446,67 @@ async def send_agent_command(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_superuser)
 ):
-    """向智能体发送指令（仅管理员）"""
+    """
+    向智能体发送指令（仅管理员）
+
+    将指令推送到 Redis 优先级队列，同时保存到数据库。
+    """
     agent = await db.get(Agent, UUID(agent_id))
     if not agent:
         raise HTTPException(404, "智能体不存在")
 
-    if agent_id not in _agent_commands:
-        _agent_commands[agent_id] = []
+    # 获取参数
+    command_type = data.get("type", "task")
+    content = data.get("content", {})
+    priority = data.get("priority", 0)
+    timeout = data.get("timeout", 300)
+    max_retries = data.get("max_retries", 3)
 
-    command = {
-        "type": data.get("type"),  # pause/cancel/task/config_reload
-        "content": data.get("content", {}),
-        "timestamp": data.get("timestamp"),
+    # 创建数据库记录
+    command = AgentCommand(
+        agent_id=UUID(agent_id),
+        command_type=command_type,
+        content=content,
+        status=CommandStatus.PENDING.value,
+        priority=priority,
+        timeout=timeout,
+        max_retries=max_retries
+    )
+    db.add(command)
+    await db.commit()
+    await db.refresh(command)
+
+    # 构建队列数据
+    command_data = {
+        "id": str(command.id),
+        "type": command_type,
+        "content": content,
+        "priority": priority,
+        "timeout": timeout,
+        "timestamp": int(time.time() * 1000)
     }
-    _agent_commands[agent_id].append(command)
 
-    return {"success": True, "command_queued": True}
+    # 推送到 Redis 队列
+    await redis_service.push_command(agent_id, command_data, priority)
+
+    # WebSocket 推送
+    await ws_manager.broadcast({
+        "type": "command_created",
+        "data": {
+            "command_id": str(command.id),
+            "agent_id": agent_id,
+            "command_type": command_type,
+            "priority": priority
+        }
+    })
+
+    logger.info(f"Command {command.id} created for agent {agent_id}")
+
+    return {
+        "success": True,
+        "command_id": str(command.id),
+        "command_queued": True
+    }
 
 
 # ==================== Allowed Tools ====================

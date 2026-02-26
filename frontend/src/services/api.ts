@@ -12,6 +12,14 @@ import type {
   ExecutionMetricsSummary,
   PaginatedResponse,
 } from '@/types';
+import type {
+  AgentCommand,
+  CommandCreate,
+  CommandQuery,
+  CommandListResponse,
+  CommandStatsResponse,
+  CommandSimpleResponse,
+} from '@/types/command';
 
 const api = axios.create({
   baseURL: '/agent/api',
@@ -403,6 +411,51 @@ export const mcpServersApi = {
 
   getTypes: async () => {
     const response = await api.get('/mcp/types');
+    return response.data;
+  },
+};
+
+// Commands API
+export const commandsApi = {
+  list: async (params?: CommandQuery) => {
+    const response = await api.get<CommandListResponse>('/commands', { params });
+    return response.data;
+  },
+
+  get: async (id: string) => {
+    const response = await api.get<AgentCommand>(`/commands/${id}`);
+    return response.data;
+  },
+
+  send: async (agentId: string, data: CommandCreate) => {
+    const response = await api.post<CommandSimpleResponse>(`/agents/${agentId}/commands`, data);
+    return response.data;
+  },
+
+  submitResult: async (commandId: string, data: { output?: string; status: string; error_message?: string }) => {
+    const response = await api.post<CommandSimpleResponse>(`/commands/${commandId}/result`, data);
+    return response.data;
+  },
+
+  updateProgress: async (commandId: string, data: { progress: number; message?: string }) => {
+    const response = await api.post<CommandSimpleResponse>(`/commands/${commandId}/progress`, data);
+    return response.data;
+  },
+
+  retry: async (commandId: string) => {
+    const response = await api.post<CommandSimpleResponse>(`/commands/${commandId}/retry`);
+    return response.data;
+  },
+
+  cancel: async (commandId: string) => {
+    const response = await api.post<CommandSimpleResponse>(`/commands/${commandId}/cancel`);
+    return response.data;
+  },
+
+  getStats: async (agentId?: string) => {
+    const response = await api.get<CommandStatsResponse>('/commands/stats/summary', {
+      params: agentId ? { agent_id: agentId } : undefined,
+    });
     return response.data;
   },
 };

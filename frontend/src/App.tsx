@@ -12,6 +12,7 @@ import Login from '@/pages/Login';
 import SkillsList from '@/pages/Skills/List';
 import PermissionsPage from '@/pages/Permissions/List';
 import MCPServersPage from '@/pages/MCP/List';
+import CommandsPage from '@/pages/Commands/List';
 import { useAuthStore } from '@/stores/authStore';
 
 // Protected Route component
@@ -51,6 +52,7 @@ const App: React.FC = () => {
                     <Route path="/skills" element={<SkillsList />} />
                     <Route path="/permissions" element={<PermissionsPage />} />
                     <Route path="/mcp" element={<MCPServersPage />} />
+                    <Route path="/commands" element={<CommandsPage />} />
                   </Routes>
                 </MainLayout>
               </ProtectedRoute>

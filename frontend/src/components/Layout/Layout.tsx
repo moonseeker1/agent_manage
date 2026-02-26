@@ -13,6 +13,7 @@ import {
   ThunderboltOutlined,
   SafetyOutlined,
   ApiOutlined,
+  SendOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
@@ -54,6 +55,11 @@ const menuItems = [
     key: '/mcp',
     icon: <ApiOutlined />,
     label: 'MCP服务器',
+  },
+  {
+    key: '/commands',
+    icon: <SendOutlined />,
+    label: '指令管理',
   },
   {
     key: '/executions',

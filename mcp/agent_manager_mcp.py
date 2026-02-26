@@ -159,7 +159,7 @@ async def list_tools():
         ),
         Tool(
             name="check_commands",
-            description="""📥 检查来自管理系统的待执行指令
+            description="""📥 检查来自管理系统的待执行指令（推荐使用 get_pending_commands）
 
 返回一个指令队列，可能包含:
 - 暂停指令: 要求暂停当前工作
@@ -169,6 +169,98 @@ async def list_tools():
 
 建议定期调用此工具检查是否有新指令。""",
             inputSchema={"type": "object", "properties": {}}
+        ),
+        Tool(
+            name="get_pending_commands",
+            description="""📥 从 Redis 队列获取待执行的指令（优先级排序）
+
+从 Redis 优先级队列获取指令，高优先级指令优先返回。
+每次调用会获取最多 10 条指令。
+
+返回的指令包含:
+- id: 指令唯一标识
+- type: 指令类型 (pause/cancel/task/config_reload)
+- content: 指令内容
+- priority: 优先级
+- timeout: 超时时间（秒）
+
+建议每 30 秒调用一次此工具检查新指令。""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "获取数量（默认 10，最大 50）",
+                        "default": 10
+                    }
+                }
+            }
+        ),
+        Tool(
+            name="submit_command_result",
+            description="""📤 提交指令执行结果
+
+执行完指令后，必须调用此工具提交结果:
+- command_id: 指令 ID（从 get_pending_commands 获取）
+- output: 执行输出/结果
+- status: 执行状态 (success/error)
+- error_message: 错误信息（如果失败）
+
+这会完成指令的闭环反馈，管理系统会记录结果并通知管理员。""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "command_id": {
+                        "type": "string",
+                        "description": "指令 ID"
+                    },
+                    "output": {
+                        "type": "string",
+                        "description": "执行输出/结果"
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "执行状态",
+                        "enum": ["success", "error"]
+                    },
+                    "error_message": {
+                        "type": "string",
+                        "description": "错误信息（如果失败）"
+                    }
+                },
+                "required": ["command_id", "status"]
+            }
+        ),
+        Tool(
+            name="report_command_progress",
+            description="""📊 报告指令执行进度
+
+对于长耗时的指令，可以定期报告进度:
+- command_id: 指令 ID
+- progress: 进度百分比 (0-100)
+- message: 进度消息
+
+这允许管理系统实时监控长时间运行的任务。""",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "command_id": {
+                        "type": "string",
+                        "description": "指令 ID"
+                    },
+                    "progress": {
+                        "type": "integer",
+                        "description": "进度百分比 (0-100)",
+                        "minimum": 0,
+                        "maximum": 100
+                    },
+                    "message": {
+                        "type": "string",
+                        "description": "进度消息"
+                    }
+                },
+                "required": ["command_id", "progress"]
+            }
         ),
         Tool(
             name="get_allowed_tools",
@@ -461,6 +553,34 @@ async def call_tool(name: str, arguments: dict):
                 result = {"commands": [], "error": "AGENT_ID 未配置"}
             else:
                 result = await api_request("GET", f"/agents/{AGENT_ID}/commands")
+
+        elif name == "get_pending_commands":
+            if not AGENT_ID:
+                result = {"commands": [], "count": 0, "error": "AGENT_ID 未配置"}
+            else:
+                limit = arguments.get("limit", 10)
+                result = await api_request("GET", f"/agents/{AGENT_ID}/commands", params={"limit": limit})
+
+        elif name == "submit_command_result":
+            command_id = arguments.get("command_id")
+            if not command_id:
+                result = {"success": False, "error": "command_id 必填"}
+            else:
+                result = await api_request("POST", f"/commands/{command_id}/result", data={
+                    "output": arguments.get("output"),
+                    "status": arguments.get("status", "success"),
+                    "error_message": arguments.get("error_message")
+                })
+
+        elif name == "report_command_progress":
+            command_id = arguments.get("command_id")
+            if not command_id:
+                result = {"success": False, "error": "command_id 必填"}
+            else:
+                result = await api_request("POST", f"/commands/{command_id}/progress", data={
+                    "progress": arguments.get("progress"),
+                    "message": arguments.get("message", "")
+                })
 
         elif name == "get_allowed_tools":
             if not AGENT_ID:

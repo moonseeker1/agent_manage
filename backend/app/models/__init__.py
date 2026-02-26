@@ -4,6 +4,7 @@ from app.models.user import User
 from app.models.permission import Skill, Permission, Role, AgentSkillBinding
 from app.models.mcp_server import MCPServer, MCPTool
 from app.models.agent_config import AgentPermission, AgentMCPBinding
+from app.models.command import AgentCommand, CommandType, CommandStatus
 
 __all__ = [
     "Agent",
@@ -23,4 +24,7 @@ __all__ = [
     "MCPTool",
     "AgentPermission",
     "AgentMCPBinding",
+    "AgentCommand",
+    "CommandType",
+    "CommandStatus",
 ]

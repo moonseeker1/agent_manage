@@ -11,6 +11,11 @@ from app.schemas.execution import (
 from app.schemas.user import (
     UserBase, UserCreate, UserLogin, UserUpdate, UserResponse, Token, TokenPayload
 )
+from app.schemas.command import (
+    CommandBase, CommandCreate, CommandUpdate, CommandResponse, CommandListResponse,
+    CommandResultSubmit, CommandProgressUpdate, CommandQueueItem, CommandQueueResponse,
+    CommandSimpleResponse, CommandQuery
+)
 
 __all__ = [
     # Agent schemas
@@ -37,5 +42,17 @@ __all__ = [
     "ExecutionLogListResponse",
     "MetricResponse",
     "AgentMetricsSummary",
-    "ExecutionMetricsSummary"
+    "ExecutionMetricsSummary",
+    # Command schemas
+    "CommandBase",
+    "CommandCreate",
+    "CommandUpdate",
+    "CommandResponse",
+    "CommandListResponse",
+    "CommandResultSubmit",
+    "CommandProgressUpdate",
+    "CommandQueueItem",
+    "CommandQueueResponse",
+    "CommandSimpleResponse",
+    "CommandQuery",
 ]

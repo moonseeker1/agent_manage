@@ -67,9 +67,13 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           数据层 (Data Layer)                                │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
-│  │   PostgreSQL    │    │    MCP Server   │    │   External API  │         │
-│  │   (主数据库)     │    │   (MCP 协议)    │    │   (OpenAI等)    │         │
+│  │   PostgreSQL    │    │     Redis       │    │    MCP Server   │         │
+│  │   (主数据库)     │    │  (消息队列)     │    │   (MCP 协议)    │         │
 │  └─────────────────┘    └─────────────────┘    └─────────────────┘         │
+│                          ┌─────────────────┐                                │
+│                          │  External API   │                                │
+│                          │   (OpenAI等)    │                                │
+│                          └─────────────────┘                                │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -78,8 +82,9 @@
 | 层级 | 技术 |
 |------|------|
 | 前端 | React 18 + TypeScript + Ant Design 5 + Vite + Zustand |
-| 后端 | Python 3.9+ + FastAPI + SQLAlchemy (async) + PostgreSQL |
+| 后端 | Python 3.9+ + FastAPI + SQLAlchemy (async) + PostgreSQL + Redis |
 | 通信 | REST API + WebSocket + MCP Protocol |
+| 消息 | Redis Sorted Set (优先级队列) |
 | 认证 | JWT (python-jose) + bcrypt |
 | 部署 | Docker + Nginx |
 
@@ -117,6 +122,8 @@
 │     ├──< agent_skill_bindings >────────────────────┘ 技能绑定                 │
 │     │                                                                         │
 │     ├──< agent_mcp_bindings >────── MCPServer ────< mcp_tools                 │
+│     │                                                                         │
+│     ├──< agent_commands >─────────── AgentCommand (Redis Queue)               │
 │     │                                                                         │
 │     ├──< agent_group_members >───── AgentGroup                                │
 │     │                                                                         │
@@ -219,6 +226,39 @@ Claude Code                    MCP Server                    管理系统后端
      │                             │─────────────────────────────►│
 ```
 
+### 3. 指令下发流程 (Redis 消息队列)
+
+```
+管理员                    管理系统后端                    Redis                    Claude Code
+   │                           │                           │                           │
+   │ POST /agents/{id}/commands│                           │                           │
+   │──────────────────────────►│                           │                           │
+   │                           │                           │                           │
+   │                           │ ZADD (priority queue)     │                           │
+   │                           │──────────────────────────►│                           │
+   │                           │                           │                           │
+   │  {command_id}             │                           │                           │
+   │◄──────────────────────────│                           │                           │
+   │                           │                           │                           │
+   │                           │                           │  get_pending_commands()   │
+   │                           │                           │◄──────────────────────────│
+   │                           │                           │                           │
+   │                           │                           │ ZPOPMAX (highest priority)│
+   │                           │                           │───────────────────────────►│
+   │                           │                           │                           │
+   │                           │                           │         command data      │
+   │                           │                           │◄──────────────────────────│
+   │                           │                           │                           │
+   │                           │                           │  submit_command_result()  │
+   │                           │                           │◄──────────────────────────│
+   │                           │                           │                           │
+   │                           │ POST /commands/{id}/result│                           │
+   │                           │◄──────────────────────────│                           │
+   │                           │                           │                           │
+   │  WebSocket 推送结果       │                           │                           │
+   │◄──────────────────────────│                           │                           │
+```
+
 ---
 
 ## 数据模型
@@ -235,6 +275,7 @@ Claude Code                    MCP Server                    管理系统后端
 | agent_permissions | 智能体权限配置 |
 | agent_skill_bindings | 智能体技能绑定 |
 | agent_mcp_bindings | 智能体MCP绑定 |
+| agent_commands | 指令队列 (PostgreSQL 持久化) |
 | mcp_servers | MCP服务器表 |
 | mcp_tools | MCP工具表 |
 | agent_groups | 智能体群组表 |
@@ -262,7 +303,17 @@ Claude Code                    MCP Server                    管理系统后端
 │   ├── GET /{id}/mcp-bindings
 │   ├── POST /{id}/check-permission ⭐
 │   ├── POST /{id}/activities     ⭐
-│   └── GET /{id}/commands        ⭐
+│   ├── POST /{id}/commands       ⭐ 发送指令
+│   └── GET /{id}/commands        ⭐ 获取指令 (Redis)
+│
+├── /commands                # 指令管理 ⭐
+│   ├── GET /                # 指令历史
+│   ├── GET /{id}            # 指令详情
+│   ├── POST /{id}/result    # 提交结果
+│   ├── POST /{id}/progress  # 更新进度
+│   ├── POST /{id}/retry     # 重试指令
+│   ├── POST /{id}/cancel    # 取消指令
+│   └── GET /stats/summary   # 统计信息
 │
 ├── /mcp                     # MCP服务器管理
 │   ├── GET /servers
@@ -295,6 +346,7 @@ Claude Code                    MCP Server                    管理系统后端
 | `/skills` | Skills | 技能管理 |
 | `/permissions` | Permissions | 权限和角色管理 |
 | `/mcp` | MCP Servers | MCP服务器管理 |
+| `/commands` | Commands | 指令管理 + 统计 |
 | `/executions` | Executions | 执行历史 |
 | `/monitor` | Monitor | 实时监控 |
 
