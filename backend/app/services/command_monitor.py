@@ -13,7 +13,7 @@ from sqlalchemy import select, and_
 from app.core.redis import redis_service
 from app.core.database import AsyncSessionLocal
 from app.models.command import AgentCommand, CommandStatus
-from api.websocket import manager as ws_manager
+from app.api.websocket import manager as ws_manager
 
 
 class CommandMonitor:

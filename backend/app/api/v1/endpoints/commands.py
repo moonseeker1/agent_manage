@@ -19,14 +19,14 @@ from app.core.database import get_db
 from app.core.redis import redis_service
 from app.core.deps import get_current_user, get_current_superuser
 from app.models.user import User
-from models.command import AgentCommand, CommandStatus
-from models.agent import Agent
-from schemas.command import (
+from app.models.command import AgentCommand, CommandStatus
+from app.models.agent import Agent
+from app.schemas.command import (
     CommandCreate, CommandUpdate, CommandResponse, CommandListResponse,
     CommandResultSubmit, CommandProgressUpdate, CommandQueueItem,
     CommandQueueResponse, CommandSimpleResponse, CommandQuery
 )
-from api.websocket import manager as ws_manager
+from app.api.websocket import manager as ws_manager
 from loguru import logger
 
 router = APIRouter(prefix="/commands", tags=["Commands"])

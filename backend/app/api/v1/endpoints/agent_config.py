@@ -27,7 +27,7 @@ from app.schemas.agent_config import (
     AgentMCPBindingResponse,
     AgentConfigResponse,
 )
-from api.websocket import manager as ws_manager
+from app.api.websocket import manager as ws_manager
 from loguru import logger
 
 router = APIRouter(prefix="/agents", tags=["Agent Configuration"])
@@ -239,16 +239,18 @@ async def get_agent_config(
         binding_dict["server_code"] = server.code if server else None
         mcp_response.append(binding_dict)
 
-    # Get skill bindings
+    # Get skill bindings with eager loading
     skill_result = await db.execute(
-        select(AgentSkillBinding).where(AgentSkillBinding.agent_id == UUID(agent_id))
+        select(AgentSkillBinding)
+        .where(AgentSkillBinding.agent_id == UUID(agent_id))
+        .options(selectinload(AgentSkillBinding.skill))
     )
     skill_bindings = skill_result.scalars().all()
     skill_response = [
         {
             "id": str(s.id),
             "skill_id": str(s.skill_id),
-            "skill_name": s.skill.name if hasattr(s, 'skill') and s.skill else None,
+            "skill_name": s.skill.name if s.skill else None,
             "priority": s.priority,
             "is_enabled": s.is_enabled
         }
